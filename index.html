@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GoJS 配网示例</title>
+    <script src="https://unpkg.com/gojs/release/go.js"></script>
+    <style>
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+        background-color: #f5f6fa;
+      }
+
+      .page {
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 24px 16px 48px;
+      }
+
+      h1 {
+        font-size: 24px;
+        font-weight: 600;
+        color: #1a2a5a;
+        margin: 0 0 16px;
+      }
+
+      p.description {
+        margin: 0 0 16px;
+        color: #4a4a4a;
+      }
+
+      #diagramDiv {
+        width: 100%;
+        height: 600px;
+        border: 1px solid #d0d5dd;
+        border-radius: 8px;
+        background-color: #ffffff;
+        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+      }
+
+      .legend {
+        margin-top: 16px;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 12px;
+        color: #4a4a4a;
+        font-size: 14px;
+      }
+
+      .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .legend-swatch {
+        width: 28px;
+        height: 12px;
+        border-radius: 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <h1>配电网络拓扑示例</h1>
+      <p class="description">
+        该示例展示了使用 GoJS 构建的配电网拓扑。主干线路沿水平方向布置，并通过断路器、开关等节点将支路以树形方式向下延伸。
+      </p>
+      <div id="diagramDiv" role="presentation" aria-label="GoJS 配网示意图"></div>
+      <div class="legend">
+        <div class="legend-item">
+          <span class="legend-swatch" style="background-color: #005bac"></span>
+          <span>主干母线</span>
+        </div>
+        <div class="legend-item">
+          <span class="legend-swatch" style="background-color: #666"></span>
+          <span>竖向支路</span>
+        </div>
+        <div class="legend-item">
+          <span class="legend-swatch" style="background-color: #e8f5e9; border: 2px solid #1e7e34"></span>
+          <span>闭合开关</span>
+        </div>
+        <div class="legend-item">
+          <span class="legend-swatch" style="background-color: #fcebea; border: 2px dashed #e74c3c"></span>
+          <span>分闸开关</span>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      window.addEventListener("DOMContentLoaded", () => {
+        const $ = go.GraphObject.make;
+
+        const diagram = $(go.Diagram, "diagramDiv", {
+          layout: $(go.TreeLayout, {
+            angle: 90,
+            nodeSpacing: 40,
+            layerSpacing: 80,
+            alternateAngle: 90,
+            arrangement: go.TreeLayout.ArrangementHorizontal,
+            alignment: go.TreeLayout.AlignmentCenterChildren
+          }),
+          "animationManager.isEnabled": false,
+          "undoManager.isEnabled": true
+        });
+
+        const linkShapeBinding = new go.Binding("stroke", "linkColor", (color) => color || "#4a4a4a");
+
+        diagram.linkTemplate = $(
+          go.Link,
+          { routing: go.Link.Orthogonal, corner: 10, selectable: false },
+          $(go.Shape, { strokeWidth: 2 }, linkShapeBinding),
+          $(
+            go.Shape,
+            {
+              fromArrow: "",
+              toArrow: "",
+              strokeWidth: 2
+            },
+            linkShapeBinding
+          )
+        );
+
+        diagram.nodeTemplate = $(
+          go.Node,
+          "Auto",
+          { locationSpot: go.Spot.Center },
+          $(
+            go.Shape,
+            "RoundedRectangle",
+            {
+              fill: "#ddeaff",
+              stroke: "#5b7cfa",
+              strokeWidth: 1.5,
+              parameter1: 6
+            },
+            new go.Binding("fill", "loadType", (type) => {
+              if (type === "transformer") return "#fff3cd";
+              if (type === "user") return "#ddeaff";
+              return "#f1f5f9";
+            })
+          ),
+          $(
+            go.TextBlock,
+            {
+              margin: new go.Margin(8, 12),
+              font: "12px/1.4 'Segoe UI', sans-serif",
+              stroke: "#1f2933",
+              textAlign: "center",
+              wrap: go.TextBlock.WrapFit,
+              width: 140
+            },
+            new go.Binding("text")
+          )
+        );
+
+        const busTemplate = $(
+          go.Node,
+          "Spot",
+          { locationSpot: go.Spot.Center },
+          $(
+            go.Panel,
+            "Auto",
+            $(
+              go.Shape,
+              "Rectangle",
+              {
+                width: 240,
+                height: 18,
+                fill: "#005bac",
+                stroke: "#003d7a",
+                strokeWidth: 2,
+                spot1: go.Spot.LeftCenter,
+                spot2: go.Spot.RightCenter
+              }
+            ),
+            $(
+              go.TextBlock,
+              {
+                margin: 4,
+                stroke: "#ffffff",
+                font: "bold 13px 'Segoe UI', sans-serif"
+              },
+              new go.Binding("text")
+            )
+          )
+        );
+
+        const feederTemplate = $(
+          go.Node,
+          "Vertical",
+          { locationSpot: go.Spot.Center },
+          $(
+            go.Shape,
+            "Rectangle",
+            {
+              width: 10,
+              height: 70,
+              fill: "#666666",
+              stroke: null
+            }
+          ),
+          $(
+            go.TextBlock,
+            {
+              margin: new go.Margin(8, 0, 0, 0),
+              font: "12px 'Segoe UI', sans-serif",
+              stroke: "#374151"
+            },
+            new go.Binding("text")
+          )
+        );
+
+        const switchTemplate = $(
+          go.Node,
+          "Vertical",
+          { locationSpot: go.Spot.Center },
+          $(
+            go.Panel,
+            "Auto",
+            $(
+              go.Shape,
+              "RoundedRectangle",
+              {
+                width: 44,
+                height: 24,
+                strokeWidth: 2,
+                parameter1: 4
+              },
+              new go.Binding("fill", "switchState", (state) =>
+                state === "open" ? "#fcebea" : "#e8f5e9"
+              ),
+              new go.Binding("stroke", "switchState", (state) =>
+                state === "open" ? "#e74c3c" : "#1e7e34"
+              ),
+              new go.Binding("strokeDashArray", "switchState", (state) =>
+                state === "open" ? [4, 2] : null
+              )
+            ),
+            $(
+              go.TextBlock,
+              {
+                margin: 4,
+                font: "bold 11px 'Segoe UI', sans-serif",
+                stroke: "#1f2933"
+              },
+              new go.Binding("text", "shortLabel")
+            )
+          ),
+          $(
+            go.TextBlock,
+            {
+              margin: new go.Margin(6, 0, 0, 0),
+              font: "12px 'Segoe UI', sans-serif",
+              stroke: "#374151"
+            },
+            new go.Binding("text")
+          )
+        );
+
+        diagram.nodeTemplateMap.add("bus", busTemplate);
+        diagram.nodeTemplateMap.add("feeder", feederTemplate);
+        diagram.nodeTemplateMap.add("switch", switchTemplate);
+
+        const nodeDataArray = [
+          { key: 1, text: "10kV 主干母线", category: "bus" },
+          {
+            key: 2,
+            parent: 1,
+            text: "一段母线开关 QF1",
+            shortLabel: "QF1",
+            category: "switch",
+            switchState: "closed",
+            linkColor: "#4a4a4a"
+          },
+          {
+            key: 3,
+            parent: 2,
+            text: "一号馈线",
+            category: "feeder",
+            linkColor: "#4a4a4a"
+          },
+          {
+            key: 4,
+            parent: 3,
+            text: "配电变压器 T1",
+            category: "",
+            loadType: "transformer",
+            linkColor: "#4a4a4a"
+          },
+          {
+            key: 5,
+            parent: 4,
+            text: "居民小区 A",
+            category: "",
+            loadType: "user",
+            linkColor: "#4a4a4a"
+          },
+          {
+            key: 6,
+            parent: 1,
+            text: "分段开关 QS1",
+            shortLabel: "QS1",
+            category: "switch",
+            switchState: "open",
+            linkColor: "#e74c3c"
+          },
+          {
+            key: 7,
+            parent: 6,
+            text: "二号馈线",
+            category: "feeder",
+            linkColor: "#e74c3c"
+          },
+          {
+            key: 8,
+            parent: 7,
+            text: "环网柜 RMU",
+            category: "",
+            loadType: "transformer",
+            linkColor: "#4a4a4a"
+          },
+          {
+            key: 9,
+            parent: 8,
+            text: "工业园区 B",
+            category: "",
+            loadType: "user",
+            linkColor: "#4a4a4a"
+          },
+          {
+            key: 10,
+            parent: 1,
+            text: "线路联络开关 QS2",
+            shortLabel: "QS2",
+            category: "switch",
+            switchState: "closed",
+            linkColor: "#4a4a4a"
+          },
+          {
+            key: 11,
+            parent: 10,
+            text: "三号馈线",
+            category: "feeder",
+            linkColor: "#4a4a4a"
+          },
+          {
+            key: 12,
+            parent: 11,
+            text: "分支开关 QS3",
+            shortLabel: "QS3",
+            category: "switch",
+            switchState: "closed",
+            linkColor: "#4a4a4a"
+          },
+          {
+            key: 13,
+            parent: 12,
+            text: "箱变 X1",
+            category: "",
+            loadType: "transformer",
+            linkColor: "#4a4a4a"
+          },
+          {
+            key: 14,
+            parent: 13,
+            text: "商业楼宇 C",
+            category: "",
+            loadType: "user",
+            linkColor: "#4a4a4a"
+          },
+          {
+            key: 15,
+            parent: 12,
+            text: "联络开关 QS4",
+            shortLabel: "QS4",
+            category: "switch",
+            switchState: "open",
+            linkColor: "#e74c3c"
+          },
+          {
+            key: 16,
+            parent: 15,
+            text: "备用支路",
+            category: "feeder",
+            linkColor: "#e74c3c"
+          }
+        ];
+
+        diagram.model = new go.TreeModel({ nodeDataArray });
+      });
+    </script>
+  </body>
+</html>
