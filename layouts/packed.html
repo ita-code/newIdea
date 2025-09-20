@@ -152,13 +152,13 @@
         });
 
         const diagram = $(go.Diagram, "diagramDiv", {
-          layout: new PackedLayout({
-            packShape: PackShape.Elliptical,
-            packMode: PackMode.Fit,
+          layout: new go.PackedLayout({
+            packShape: go.PackShape.Elliptical,
+            packMode: go.PackMode.Fit,
             aspectRatio: 1,
             spacing: 16,
-            sortMode: SortMode.Area,
-            sortOrder: SortOrder.Descending
+            sortMode: go.SortMode.Area,
+            sortOrder: go.SortOrder.Descending
           }),
           initialAutoScale: go.Diagram.Uniform,
           allowZoom: true,

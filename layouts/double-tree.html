@@ -159,7 +159,7 @@
         buildSide(rightPlan, "right");
 
         const diagram = $(go.Diagram, "diagramDiv", {
-          layout: new DoubleTreeLayout({
+          layout: new go.DoubleTreeLayout({
             directionFunction: (node) => node.data && node.data.dir !== "left",
             bottomRightOptions: { nodeSpacing: 18, layerSpacing: 36 },
             topLeftOptions: { nodeSpacing: 18, layerSpacing: 36 }
