@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LayeredDigraphLayout 示例 | GoJS 布局画廊</title>
+    <script src="https://unpkg.com/gojs/release/go.js"></script>
+    <style>
+      body {
+        margin: 0;
+        font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+        background: linear-gradient(180deg, #f8fafc 0%, #e2e8f0 100%);
+        color: #0f172a;
+      }
+
+      header {
+        padding: 32px 16px 20px;
+        text-align: center;
+      }
+
+      header h1 {
+        margin: 0;
+        font-size: clamp(26px, 4vw, 36px);
+        color: #1f2937;
+      }
+
+      header p {
+        margin: 12px auto 0;
+        max-width: 640px;
+        line-height: 1.6;
+        color: #4b5563;
+      }
+
+      main {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 16px 16px 56px;
+      }
+
+      .toolbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-bottom: 12px;
+      }
+
+      .back-link {
+        color: #2563eb;
+        text-decoration: none;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .back-link::before {
+        content: "←";
+        font-size: 18px;
+      }
+
+      #diagramDiv {
+        width: 100%;
+        height: 640px;
+        border-radius: 16px;
+        border: 1px solid rgba(148, 163, 184, 0.3);
+        background: #ffffff;
+        box-shadow: 0 20px 50px rgba(15, 23, 42, 0.12);
+      }
+
+      .legend {
+        margin-top: 20px;
+        display: grid;
+        gap: 10px;
+        padding: 18px 20px;
+        border-radius: 14px;
+        background: rgba(226, 232, 240, 0.6);
+        border: 1px solid rgba(148, 163, 184, 0.4);
+        font-size: 14px;
+      }
+
+      .legend strong {
+        color: #1f2937;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>LayeredDigraphLayout 示例</h1>
+      <p>
+        以 5 层流程结构展示 50 个节点，强调方向性关系以及跨层交叉链接，模拟数据管道或业务流程图。
+      </p>
+    </header>
+    <main>
+      <div class="toolbar">
+        <a class="back-link" href="../index.html">返回布局画廊</a>
+        <span>节点数：50 · 连接数：120</span>
+      </div>
+      <div id="diagramDiv" role="presentation" aria-label="LayeredDigraphLayout 示例"></div>
+      <div class="legend">
+        <div><strong>节点配色</strong>：根据层级使用渐变色，方便识别流程进度。</div>
+        <div><strong>连线设计</strong>：除顺层连线外加入跨层跳线，用以展示复杂依赖。</div>
+      </div>
+    </main>
+    <script>
+      window.addEventListener("DOMContentLoaded", () => {
+        const $ = go.GraphObject.make;
+
+        const layerCount = 5;
+        const nodesPerLayer = 10;
+        const colors = ["#bfdbfe", "#93c5fd", "#60a5fa", "#3b82f6", "#2563eb"];
+
+        const nodes = [];
+        for (let layer = 0; layer < layerCount; layer++) {
+          for (let index = 0; index < nodesPerLayer; index++) {
+            const key = layer * nodesPerLayer + index;
+            nodes.push({
+              key,
+              text: `L${layer + 1}-${index + 1}`,
+              layer,
+              fill: colors[layer]
+            });
+          }
+        }
+
+        const links = [];
+        for (let layer = 0; layer < layerCount; layer++) {
+          for (let index = 0; index < nodesPerLayer; index++) {
+            const from = layer * nodesPerLayer + index;
+            if (layer < layerCount - 1) {
+              const nextLayerStart = (layer + 1) * nodesPerLayer;
+              const target1 = nextLayerStart + (index % nodesPerLayer);
+              const target2 = nextLayerStart + ((index + 3) % nodesPerLayer);
+              links.push({ from, to: target1 });
+              if (target2 !== target1) links.push({ from, to: target2 });
+            }
+            if (layer < layerCount - 2 && index % 2 === 0) {
+              const skipLayerStart = (layer + 2) * nodesPerLayer;
+              const target = skipLayerStart + ((index + layer) % nodesPerLayer);
+              links.push({ from, to: target });
+            }
+          }
+        }
+
+        const diagram = $(go.Diagram, "diagramDiv", {
+          layout: $(go.LayeredDigraphLayout, {
+            direction: 0,
+            layerSpacing: 90,
+            columnSpacing: 16,
+            setsPortSpots: false
+          }),
+          "undoManager.isEnabled": false
+        });
+
+        diagram.nodeTemplate = $(
+          go.Node,
+          "Auto",
+          $(
+            go.Shape,
+            "RoundedRectangle",
+            {
+              strokeWidth: 0,
+              fill: "#e2e8f0",
+              desiredSize: new go.Size(120, 42)
+            },
+            new go.Binding("fill", "fill")
+          ),
+          $(
+            go.TextBlock,
+            {
+              margin: 6,
+              font: "bold 13px 'Segoe UI'",
+              stroke: "#1f2937"
+            },
+            new go.Binding("text", "text")
+          )
+        );
+
+        diagram.linkTemplate = $(
+          go.Link,
+          {
+            routing: go.Link.Orthogonal,
+            corner: 6,
+            fromEndSegmentLength: 10,
+            toEndSegmentLength: 10,
+            selectable: false
+          },
+          $(go.Shape, { strokeWidth: 1.5, stroke: "#1d4ed8" })
+        );
+
+        diagram.model = new go.GraphLinksModel(nodes, links);
+      });
+    </script>
+  </body>
+</html>

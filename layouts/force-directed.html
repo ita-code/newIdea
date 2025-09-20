@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ForceDirectedLayout 示例 | GoJS 布局画廊</title>
+    <script src="https://unpkg.com/gojs/release/go.js"></script>
+    <style>
+      body {
+        margin: 0;
+        font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+        background-color: #0f172a;
+        color: #f8fafc;
+      }
+
+      header {
+        padding: 24px 16px;
+        text-align: center;
+        background: radial-gradient(circle at top, rgba(59, 130, 246, 0.35), transparent 65%),
+          #0f172a;
+      }
+
+      header h1 {
+        margin: 0 0 8px;
+        font-size: clamp(26px, 4vw, 36px);
+        letter-spacing: 0.04em;
+      }
+
+      header p {
+        margin: 0;
+        color: rgba(226, 232, 240, 0.78);
+      }
+
+      main {
+        max-width: 1120px;
+        margin: 0 auto;
+        padding: 16px 16px 48px;
+      }
+
+      .toolbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+
+      .back-link {
+        color: #93c5fd;
+        text-decoration: none;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .back-link::before {
+        content: "←";
+        font-size: 18px;
+      }
+
+      #diagramDiv {
+        width: 100%;
+        height: 640px;
+        border-radius: 18px;
+        background: radial-gradient(circle at center, rgba(59, 130, 246, 0.12), transparent 70%),
+          rgba(15, 23, 42, 0.88);
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        box-shadow: 0 24px 60px rgba(15, 23, 42, 0.45);
+      }
+
+      .legend {
+        margin-top: 18px;
+        padding: 16px 18px;
+        border-radius: 12px;
+        background: rgba(15, 23, 42, 0.78);
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        display: grid;
+        gap: 8px;
+        font-size: 14px;
+      }
+
+      .legend strong {
+        color: #bfdbfe;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>ForceDirectedLayout 示例</h1>
+      <p>基于 50 个节点的复杂网络，通过力导向算法呈现自然舒展的结构。</p>
+    </header>
+    <main>
+      <div class="toolbar">
+        <a class="back-link" href="../index.html">返回布局画廊</a>
+        <span>节点数：50 · 连接数：150</span>
+      </div>
+      <div id="diagramDiv" role="presentation" aria-label="ForceDirectedLayout 示例"></div>
+      <div class="legend">
+        <div><strong>节点颜色</strong>：按社群编号着色，突出社群分布</div>
+        <div><strong>连接</strong>：包含环形主干与跨社群连接，模拟稠密关系网络</div>
+      </div>
+    </main>
+    <script>
+      window.addEventListener("DOMContentLoaded", () => {
+        const $ = go.GraphObject.make;
+
+        const colors = ["#60a5fa", "#a855f7", "#34d399", "#f87171", "#facc15"];
+        const nodeCount = 50;
+        const nodes = Array.from({ length: nodeCount }, (_, i) => ({
+          key: i,
+          text: `节点 ${i + 1}`,
+          group: i % colors.length,
+          fill: colors[i % colors.length]
+        }));
+
+        const links = [];
+        for (let i = 0; i < nodeCount; i++) {
+          const next = (i + 1) % nodeCount;
+          const chord = (i + 5) % nodeCount;
+          const longChord = (i + 11) % nodeCount;
+          links.push({ from: i, to: next });
+          if (i !== chord) links.push({ from: i, to: chord });
+          if (i !== longChord) links.push({ from: i, to: longChord });
+        }
+
+        const diagram = $(go.Diagram, "diagramDiv", {
+          layout: $(go.ForceDirectedLayout, {
+            defaultSpringLength: 120,
+            defaultElectricalCharge: 150
+          }),
+          "undoManager.isEnabled": false
+        });
+
+        diagram.nodeTemplate = $(
+          go.Node,
+          "Auto",
+          $(
+            go.Shape,
+            "Circle",
+            {
+              strokeWidth: 0,
+              fill: "#1e293b",
+              desiredSize: new go.Size(42, 42)
+            },
+            new go.Binding("fill", "fill")
+          ),
+          $(
+            go.TextBlock,
+            {
+              margin: 4,
+              stroke: "#0f172a",
+              font: "bold 12px 'Segoe UI'",
+              background: "rgba(248, 250, 252, 0.9)",
+              maxSize: new go.Size(58, NaN)
+            },
+            new go.Binding("text", "text")
+          )
+        );
+
+        diagram.linkTemplate = $(
+          go.Link,
+          {
+            curve: go.Link.Bezier,
+            adjusting: go.Link.Stretch,
+            opacity: 0.8,
+            selectable: false
+          },
+          $(go.Shape, {
+            strokeWidth: 1.5,
+            stroke: "rgba(148, 163, 184, 0.65)"
+          })
+        );
+
+        diagram.model = new go.GraphLinksModel(nodes, links);
+      });
+    </script>
+  </body>
+</html>
