@@ -17,7 +17,12 @@
         margin: 0;
         font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
         color: #1f2933;
-        background: linear-gradient(160deg, #f8fafc 0%, #f1f5f9 40%, #e2e8f0 100%);
+        background: linear-gradient(
+          160deg,
+          #f8fafc 0%,
+          #f1f5f9 40%,
+          #e2e8f0 100%
+        );
         min-height: 100vh;
       }
 
@@ -138,6 +143,90 @@
       footer a {
         color: inherit;
       }
+
+      .layout-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 24px;
+      }
+
+      .card {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding: 24px;
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.82);
+        backdrop-filter: blur(8px);
+        text-decoration: none;
+        color: inherit;
+        box-shadow: 0 12px 32px rgba(15, 23, 42, 0.12);
+        transition: transform 0.25s ease, box-shadow 0.25s ease;
+        border: 1px solid rgba(15, 23, 42, 0.08);
+      }
+
+      .card:hover,
+      .card:focus-visible {
+        transform: translateY(-6px);
+        box-shadow: 0 18px 38px rgba(15, 23, 42, 0.16);
+        outline: none;
+      }
+
+      .card h2 {
+        margin: 0;
+        font-size: 20px;
+        color: #0f172a;
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: #1d4ed8;
+        background-color: rgba(59, 130, 246, 0.12);
+        padding: 6px 10px;
+        border-radius: 999px;
+      }
+
+      .card p {
+        margin: 0;
+        line-height: 1.6;
+        color: #52606d;
+      }
+
+      .card span {
+        margin-top: auto;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 600;
+        color: #2563eb;
+      }
+
+      .card span::after {
+        content: "→";
+        font-size: 18px;
+        transition: transform 0.2s ease;
+      }
+
+      .card:hover span::after {
+        transform: translateX(4px);
+      }
+
+      footer {
+        text-align: center;
+        padding: 32px 16px 56px;
+        color: #475569;
+        font-size: 14px;
+      }
+
+      footer a {
+        color: inherit;
+      }
     </style>
   </head>
   <body>
@@ -145,7 +234,8 @@
       <div class="inner">
         <h1>GoJS 布局示例画廊</h1>
         <p>
-          这里汇集了 GoJS 内建布局与常用扩展布局，共 12 个案例，每个示例都使用约 50 个节点，方便快速对比不同算法在复杂网络下的呈现效果。
+          这里汇集了 GoJS 内建布局与常用扩展布局，共 12 个案例，每个示例都使用约
+          50 个节点，方便快速对比不同算法在复杂网络下的呈现效果。
           点击任意卡片即可打开互动页面，查看节点连线细节。
         </p>
       </div>
@@ -180,7 +270,8 @@
           <span class="badge">GoJS 布局</span>
           <h2>TreeLayout</h2>
           <p>
-            多叉树结构自上而下展开，呈现 50 个节点的层级组织，适合可视化企业结构或配电网络。
+            多叉树结构自上而下展开，呈现 50
+            个节点的层级组织，适合可视化企业结构或配电网络。
           </p>
           <span>查看示例</span>
         </a>
@@ -220,7 +311,8 @@
           <span class="badge">GoJS 布局</span>
           <h2>SerpentineLayout</h2>
           <p>
-            以蛇形路径串联 50 个阶段节点，自动换行展示长链路的推进节奏，并以虚线标注跨阶段依赖。
+            以蛇形路径串联 50
+            个阶段节点，自动换行展示长链路的推进节奏，并以虚线标注跨阶段依赖。
           </p>
           <span>查看示例</span>
         </a>
@@ -228,7 +320,8 @@
           <span class="badge">GoJS 布局</span>
           <h2>ParallelLayout</h2>
           <p>
-            以单一分流节点派生四条并行流程，观察 50 个任务的左右支路及其关键同步点如何在合流处收敛。
+            以单一分流节点派生四条并行流程，观察 50
+            个任务的左右支路及其关键同步点如何在合流处收敛。
           </p>
           <span>查看示例</span>
         </a>
@@ -236,7 +329,8 @@
           <span class="badge">GoJS 布局</span>
           <h2>PackedLayout</h2>
           <p>
-            将 50 个节点紧凑装填进椭圆边界，节点面积代表活跃度，辅以跨集群连线展示协同关系。
+            将 50
+            个节点紧凑装填进椭圆边界，节点面积代表活跃度，辅以跨集群连线展示协同关系。
           </p>
           <span>查看示例</span>
         </a>
@@ -244,12 +338,17 @@
           <span class="badge">GoJS 布局</span>
           <h2>FishboneLayout</h2>
           <p>
-            采用鱼骨图形式梳理 50 个根因要素，从主干问题向左右分支发散，突出原因归类。
+            采用鱼骨图形式梳理 50
+            个根因要素，从主干问题向左右分支发散，突出原因归类。
           </p>
           <span>查看示例</span>
         </a>
       </div>
     </main>
-    <footer>基于 <a href="https://gojs.net" target="_blank" rel="noreferrer">GoJS</a> 最新版本构建</footer>
+    <footer>
+      基于
+      <a href="https://gojs.net" target="_blank" rel="noreferrer">GoJS</a>
+      最新版本构建
+    </footer>
   </body>
 </html>

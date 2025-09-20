@@ -10,7 +10,12 @@
       body {
         margin: 0;
         font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
-        background: linear-gradient(145deg, #111827 0%, #0f172a 35%, #020617 100%);
+        background: linear-gradient(
+          145deg,
+          #111827 0%,
+          #0f172a 35%,
+          #020617 100%
+        );
         color: #f8fafc;
       }
 
@@ -65,7 +70,11 @@
         width: 100%;
         height: 640px;
         border-radius: 20px;
-        background: radial-gradient(circle at center, rgba(56, 189, 248, 0.18), rgba(15, 23, 42, 0.95));
+        background: radial-gradient(
+          circle at center,
+          rgba(56, 189, 248, 0.18),
+          rgba(15, 23, 42, 0.95)
+        );
         border: 1px solid rgba(148, 163, 184, 0.2);
         box-shadow: 0 30px 70px rgba(2, 6, 23, 0.6);
       }
@@ -90,7 +99,8 @@
     <header>
       <h1>PackedLayout 示例</h1>
       <p>
-        PackedLayout 将 50 个圆形节点紧凑排布在椭圆形空间内，展示多产品线在空间上的均衡分布，并通过连线体现跨集群协作。
+        PackedLayout 将 50
+        个圆形节点紧凑排布在椭圆形空间内，展示多产品线在空间上的均衡分布，并通过连线体现跨集群协作。
       </p>
     </header>
     <main>
@@ -98,10 +108,20 @@
         <a class="back-link" href="../index.html">返回布局画廊</a>
         <span id="stats">节点数：0 · 连接数：0</span>
       </div>
-      <div id="diagramDiv" role="presentation" aria-label="PackedLayout 示例"></div>
+      <div
+        id="diagramDiv"
+        role="presentation"
+        aria-label="PackedLayout 示例"
+      ></div>
       <div class="legend">
-        <div><strong>颜色分组：</strong>节点按事业群划分为五个集群，尺寸大小反映该集群的活跃度。</div>
-        <div><strong>跨集群协作：</strong>对角虚线展示关键协作关系，观察 PackedLayout 在保持紧凑的同时如何留出路径。</div>
+        <div>
+          <strong>颜色分组：</strong
+          >节点按事业群划分为五个集群，尺寸大小反映该集群的活跃度。
+        </div>
+        <div>
+          <strong>跨集群协作：</strong>对角虚线展示关键协作关系，观察
+          PackedLayout 在保持紧凑的同时如何留出路径。
+        </div>
       </div>
     </main>
     <script>
@@ -113,7 +133,7 @@
           { name: "云服务", color: "#818cf8" },
           { name: "行业解决", color: "#f472b6" },
           { name: "生态合作", color: "#34d399" },
-          { name: "数据产品", color: "#facc15" }
+          { name: "数据产品", color: "#facc15" },
         ];
 
         const nodes = [];
@@ -128,7 +148,7 @@
               text: `${group.name} ${i + 1}`,
               color: group.color,
               size: radius,
-              cluster: group.name
+              cluster: group.name,
             });
 
             if (i > 0) {
@@ -144,7 +164,7 @@
           [21, 8],
           [32, 44],
           [38, 4],
-          [47, 15]
+          [47, 15],
         ];
 
         bridgeLinks.forEach(([from, to]) => {
@@ -158,11 +178,11 @@
             aspectRatio: 1,
             spacing: 16,
             sortMode: go.SortMode.Area,
-            sortOrder: go.SortOrder.Descending
+            sortOrder: go.SortOrder.Descending,
           }),
           initialAutoScale: go.Diagram.Uniform,
           allowZoom: true,
-          "undoManager.isEnabled": false
+          "undoManager.isEnabled": false,
         });
 
         diagram.nodeTemplate = $(
@@ -174,7 +194,7 @@
             "Circle",
             {
               stroke: "rgba(15, 23, 42, 0.2)",
-              strokeWidth: 1
+              strokeWidth: 1,
             },
             new go.Binding("fill", "color"),
             new go.Binding("desiredSize", "size", (s) => new go.Size(s, s))
@@ -187,7 +207,7 @@
               font: "bold 12px 'Segoe UI'",
               margin: 4,
               wrap: go.TextBlock.WrapFit,
-              maxSize: new go.Size(80, NaN)
+              maxSize: new go.Size(80, NaN),
             },
             new go.Binding("text", "text")
           )
@@ -199,7 +219,7 @@
             routing: go.Link.AvoidsNodes,
             corner: 6,
             selectable: false,
-            opacity: 0.65
+            opacity: 0.65,
           },
           $(go.Shape, { strokeWidth: 1.5, stroke: "rgba(148, 163, 184, 0.6)" })
         );
@@ -214,14 +234,19 @@
               curve: go.Link.Bezier,
               adjusting: go.Link.End,
               selectable: false,
-              opacity: 0.75
+              opacity: 0.75,
             },
             $(go.Shape, {
               strokeWidth: 1.4,
               stroke: "rgba(56, 189, 248, 0.65)",
-              strokeDashArray: [6, 3]
+              strokeDashArray: [6, 3],
             }),
-            $(go.Shape, { toArrow: "Standard", fill: "rgba(56, 189, 248, 0.78)", stroke: null, scale: 0.9 })
+            $(go.Shape, {
+              toArrow: "Standard",
+              fill: "rgba(56, 189, 248, 0.78)",
+              stroke: null,
+              scale: 0.9,
+            })
           )
         );
 
