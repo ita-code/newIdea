@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GridLayout 示例 | GoJS 布局画廊</title>
+    <script src="https://unpkg.com/gojs/release/go.js"></script>
+    <style>
+      body {
+        margin: 0;
+        font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+        background: linear-gradient(120deg, #0f172a 0%, #082f49 100%);
+        color: #e0f2fe;
+        min-height: 100vh;
+      }
+
+      header {
+        padding: 30px 16px 18px;
+        text-align: center;
+      }
+
+      header h1 {
+        margin: 0;
+        font-size: clamp(26px, 4vw, 36px);
+      }
+
+      header p {
+        margin: 12px auto 0;
+        max-width: 620px;
+        color: rgba(191, 219, 254, 0.9);
+        line-height: 1.6;
+      }
+
+      main {
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 16px 16px 56px;
+      }
+
+      .toolbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-bottom: 12px;
+      }
+
+      .back-link {
+        color: #38bdf8;
+        text-decoration: none;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .back-link::before {
+        content: "←";
+        font-size: 18px;
+      }
+
+      #diagramDiv {
+        width: 100%;
+        height: 640px;
+        border-radius: 18px;
+        border: 1px solid rgba(125, 211, 252, 0.4);
+        background: rgba(8, 47, 73, 0.75);
+        box-shadow: 0 32px 80px rgba(8, 47, 73, 0.5);
+      }
+
+      .legend {
+        margin-top: 18px;
+        display: grid;
+        gap: 10px;
+        padding: 18px;
+        border-radius: 14px;
+        background: rgba(8, 47, 73, 0.7);
+        border: 1px solid rgba(14, 165, 233, 0.4);
+        font-size: 14px;
+      }
+
+      .legend strong {
+        color: #7dd3fc;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>GridLayout 示例</h1>
+      <p>
+        将 49 个节点按照 7×7 的网格对齐，并通过行列邻接连线展示矩阵拓扑，适合查看规则结构中的连通性。
+      </p>
+    </header>
+    <main>
+      <div class="toolbar">
+        <a class="back-link" href="../index.html">返回布局画廊</a>
+        <span>节点数：49 · 连接数：84</span>
+      </div>
+      <div id="diagramDiv" role="presentation" aria-label="GridLayout 示例"></div>
+      <div class="legend">
+        <div><strong>颜色梯度</strong>：按行使用由浅至深的蓝色系，便于识别行信息。</div>
+        <div><strong>连线设计</strong>：链接相邻行列节点，突出网格拓扑结构。</div>
+      </div>
+    </main>
+    <script>
+      window.addEventListener("DOMContentLoaded", () => {
+        const $ = go.GraphObject.make;
+
+        const rows = 7;
+        const cols = 7;
+        const palette = ["#bae6fd", "#7dd3fc", "#38bdf8", "#0ea5e9", "#0284c7", "#0369a1", "#0f172a"];
+
+        const nodes = [];
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            const key = r * cols + c;
+            nodes.push({
+              key,
+              text: `(${r + 1}, ${c + 1})`,
+              row: r,
+              col: c,
+              fill: palette[r]
+            });
+          }
+        }
+
+        const links = [];
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            const from = r * cols + c;
+            if (c < cols - 1) {
+              links.push({ from, to: from + 1 });
+            }
+            if (r < rows - 1) {
+              links.push({ from, to: from + cols });
+            }
+          }
+        }
+
+        const diagram = $(go.Diagram, "diagramDiv", {
+          layout: $(go.GridLayout, {
+            wrappingColumn: cols,
+            spacing: new go.Size(50, 40),
+            alignment: go.GridLayout.Position
+          }),
+          allowHorizontalScroll: false,
+          allowVerticalScroll: false,
+          "undoManager.isEnabled": false
+        });
+
+        diagram.nodeTemplate = $(
+          go.Node,
+          "Auto",
+          $(
+            go.Shape,
+            "RoundedRectangle",
+            {
+              strokeWidth: 0,
+              fill: "#0ea5e9",
+              desiredSize: new go.Size(72, 44)
+            },
+            new go.Binding("fill", "fill")
+          ),
+          $(
+            go.TextBlock,
+            {
+              margin: 6,
+              font: "bold 13px 'Segoe UI'",
+              stroke: "#082f49"
+            },
+            new go.Binding("text", "text")
+          )
+        );
+
+        diagram.linkTemplate = $(
+          go.Link,
+          {
+            routing: go.Link.Orthogonal,
+            corner: 4,
+            selectable: false,
+            opacity: 0.85
+          },
+          $(go.Shape, { strokeWidth: 1.2, stroke: "rgba(125, 211, 252, 0.7)" })
+        );
+
+        diagram.model = new go.GraphLinksModel(nodes, links);
+      });
+    </script>
+  </body>
+</html>
