@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DoubleTreeLayout 示例 | GoJS 布局画廊</title>
+    <script src="https://unpkg.com/gojs/release/go.js"></script>
+    <script src="https://gojs.net/latest/extensions/DoubleTreeLayout.js"></script>
+    <style>
+      body {
+        margin: 0;
+        font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+        background: linear-gradient(140deg, #f1f5f9 0%, #e2e8f0 40%, #cbd5f5 100%);
+        color: #0f172a;
+      }
+
+      header {
+        padding: 34px 16px 20px;
+        text-align: center;
+      }
+
+      header h1 {
+        margin: 0 0 12px;
+        font-size: clamp(26px, 4vw, 36px);
+        letter-spacing: 0.05em;
+        color: #1f2937;
+      }
+
+      header p {
+        margin: 0 auto;
+        max-width: 720px;
+        line-height: 1.6;
+        color: #334155;
+      }
+
+      main {
+        max-width: 1120px;
+        margin: 0 auto;
+        padding: 20px 16px 60px;
+      }
+
+      .toolbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-bottom: 14px;
+      }
+
+      .back-link {
+        color: #2563eb;
+        text-decoration: none;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .back-link::before {
+        content: "←";
+        font-size: 18px;
+      }
+
+      #diagramDiv {
+        width: 100%;
+        height: 640px;
+        border-radius: 20px;
+        background: #ffffff;
+        border: 1px solid rgba(148, 163, 184, 0.3);
+        box-shadow: 0 22px 60px rgba(15, 23, 42, 0.2);
+      }
+
+      .legend {
+        margin-top: 22px;
+        padding: 18px 20px;
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.86);
+        border: 1px solid rgba(148, 163, 184, 0.4);
+        display: grid;
+        gap: 10px;
+        font-size: 14px;
+      }
+
+      .legend strong {
+        color: #1d4ed8;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>DoubleTreeLayout 示例</h1>
+      <p>
+        以中心主题向左右扩散为骨架，构建 50 节点的心智图谱，一侧聚焦战略规划，另一侧落地执行细节。
+      </p>
+    </header>
+    <main>
+      <div class="toolbar">
+        <a class="back-link" href="../index.html">返回布局画廊</a>
+        <span id="stats">节点数：0 · 连接数：0</span>
+      </div>
+      <div id="diagramDiv" role="presentation" aria-label="DoubleTreeLayout 示例"></div>
+      <div class="legend">
+        <div><strong>左右对称</strong>：根节点子树依据 dir 属性向两侧展开，实现战略与执行两大板块的对照分析。</div>
+        <div><strong>层级划分</strong>：每个主题节点衍生若干关键举措与具体任务，快速形成结构化思维导图。</div>
+      </div>
+    </main>
+    <script>
+      window.addEventListener("DOMContentLoaded", () => {
+        const $ = go.GraphObject.make;
+
+        const branchPalette = {
+          left: ["#38bdf8", "#60a5fa", "#a855f7"],
+          right: ["#f97316", "#facc15", "#22c55e"]
+        };
+
+        const leftPlan = [
+          { label: "市场洞察", topics: [2, 2, 2] },
+          { label: "产品路线", topics: [3, 2] },
+          { label: "渠道策略", topics: [2, 1] }
+        ];
+        const rightPlan = [
+          { label: "实施计划", topics: [3, 2, 2] },
+          { label: "团队协同", topics: [2, 2] },
+          { label: "度量反馈", topics: [2, 2] }
+        ];
+
+        const nodeDataArray = [{ key: "核心", text: "增长蓝图", color: "#2563eb" }];
+
+        const buildSide = (plan, dir) => {
+          plan.forEach((branch, branchIndex) => {
+            const branchKey = `${dir}-${branchIndex}`;
+            const branchColor = branchPalette[dir][branchIndex % branchPalette[dir].length];
+            nodeDataArray.push({ key: branchKey, parent: "核心", dir, text: branch.label, color: branchColor });
+
+            branch.topics.forEach((taskCount, topicIndex) => {
+              const topicKey = `${branchKey}-T${topicIndex}`;
+              nodeDataArray.push({
+                key: topicKey,
+                parent: branchKey,
+                text: `${branch.label}·模块 ${topicIndex + 1}`,
+                color: branchColor
+              });
+
+              for (let i = 0; i < taskCount; i++) {
+                const detailKey = `${topicKey}-D${i}`;
+                nodeDataArray.push({
+                  key: detailKey,
+                  parent: topicKey,
+                  text: `${branch.label} 行动 ${topicIndex + 1}-${i + 1}`,
+                  color: branchColor
+                });
+              }
+            });
+          });
+        };
+
+        buildSide(leftPlan, "left");
+        buildSide(rightPlan, "right");
+
+        const diagram = $(go.Diagram, "diagramDiv", {
+          layout: $(DoubleTreeLayout, {
+            directionFunction: (node) => node.data && node.data.dir !== "left",
+            bottomRightOptions: { nodeSpacing: 18, layerSpacing: 36 },
+            topLeftOptions: { nodeSpacing: 18, layerSpacing: 36 }
+          }),
+          initialContentAlignment: go.Spot.Center,
+          padding: 30,
+          "undoManager.isEnabled": false
+        });
+
+        diagram.nodeTemplate = $(
+          go.Node,
+          "Auto",
+          $(
+            go.Shape,
+            "RoundedRectangle",
+            {
+              fill: "#ffffff",
+              strokeWidth: 1,
+              stroke: "rgba(148, 163, 184, 0.5)",
+              spot1: go.Spot.TopLeft,
+              spot2: go.Spot.BottomRight,
+              shadowVisible: true,
+              shadowColor: "rgba(15, 23, 42, 0.18)",
+              shadowOffset: new go.Point(0, 3),
+              shadowBlur: 8
+            },
+            new go.Binding("fill", "color", (c) => go.Brush.mix("#ffffff", c || "#2563eb", 0.18))
+          ),
+          $(
+            go.TextBlock,
+            {
+              margin: new go.Margin(6, 10, 6, 10),
+              font: "600 12px 'Segoe UI'",
+              stroke: "#1f2937",
+              maxSize: new go.Size(140, NaN),
+              wrap: go.TextBlock.WrapFit
+            },
+            new go.Binding("text", "text")
+          )
+        );
+
+        diagram.linkTemplate = $(
+          go.Link,
+          { routing: go.Link.Orthogonal, corner: 8, selectable: false },
+          $(go.Shape, { strokeWidth: 1.1, stroke: "rgba(148, 163, 184, 0.5)" })
+        );
+
+        diagram.model = new go.TreeModel(nodeDataArray);
+
+        const stats = document.getElementById("stats");
+        if (stats) {
+          const linkCount = nodeDataArray.length - 1;
+          stats.textContent = `节点数：${nodeDataArray.length} · 连接数：${linkCount}`;
+        }
+      });
+    </script>
+  </body>
+</html>

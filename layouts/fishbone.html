@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FishboneLayout 示例 | GoJS 布局画廊</title>
+    <script src="https://unpkg.com/gojs/release/go.js"></script>
+    <script src="https://gojs.net/latest/extensions/FishboneLayout.js"></script>
+    <style>
+      body {
+        margin: 0;
+        font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+        background: linear-gradient(160deg, #0f172a 0%, #1e293b 45%, #020617 100%);
+        color: #f8fafc;
+      }
+
+      header {
+        padding: 30px 16px 18px;
+        text-align: center;
+      }
+
+      header h1 {
+        margin: 0 0 12px;
+        font-size: clamp(26px, 4vw, 38px);
+        letter-spacing: 0.05em;
+      }
+
+      header p {
+        margin: 0 auto;
+        max-width: 760px;
+        line-height: 1.6;
+        color: rgba(226, 232, 240, 0.82);
+      }
+
+      main {
+        max-width: 1140px;
+        margin: 0 auto;
+        padding: 20px 16px 56px;
+      }
+
+      .toolbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-bottom: 16px;
+      }
+
+      .back-link {
+        color: #38bdf8;
+        text-decoration: none;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .back-link::before {
+        content: "←";
+        font-size: 18px;
+      }
+
+      #diagramDiv {
+        width: 100%;
+        height: 640px;
+        border-radius: 20px;
+        background: radial-gradient(circle at center, rgba(59, 130, 246, 0.18), rgba(15, 23, 42, 0.94));
+        border: 1px solid rgba(148, 163, 184, 0.24);
+        box-shadow: 0 28px 64px rgba(15, 23, 42, 0.55);
+      }
+
+      .legend {
+        margin-top: 20px;
+        padding: 18px 20px;
+        border-radius: 16px;
+        background: rgba(15, 23, 42, 0.72);
+        border: 1px solid rgba(148, 163, 184, 0.24);
+        display: grid;
+        gap: 10px;
+        font-size: 14px;
+      }
+
+      .legend strong {
+        color: #bfdbfe;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>FishboneLayout 示例</h1>
+      <p>
+        FishboneLayout（鱼骨图）使用脊柱式排布梳理交付缺陷的根因。示例中以 50 个节点呈现六大维度及其细分因素，帮助快速定位问题归属。
+      </p>
+    </header>
+    <main>
+      <div class="toolbar">
+        <a class="back-link" href="../index.html">返回布局画廊</a>
+        <span id="stats">节点数：0 · 连接数：0</span>
+      </div>
+      <div id="diagramDiv" role="presentation" aria-label="FishboneLayout 示例"></div>
+      <div class="legend">
+        <div><strong>主干方向：</strong>从左至右表示问题脊柱，顶端为核心问题，鱼骨分支展示原因维度。</div>
+        <div><strong>分支主题：</strong>每个维度包含 7-8 个叶子节点，总计 50 个要素，突出排查细节。</div>
+      </div>
+    </main>
+    <script>
+      window.addEventListener("DOMContentLoaded", () => {
+        const $ = go.GraphObject.make;
+
+        const rootKey = "root";
+        const categories = [
+          {
+            key: "人员",
+            label: "人员能力",
+            color: "#38bdf8",
+            leaves: [
+              "新人培训",
+              "技能矩阵",
+              "值班交接",
+              "双人校验",
+              "专家评审",
+              "激励机制",
+              "职业发展",
+              "团队士气"
+            ]
+          },
+          {
+            key: "流程",
+            label: "流程制度",
+            color: "#818cf8",
+            leaves: [
+              "需求澄清",
+              "变更控制",
+              "发布窗口",
+              "回滚方案",
+              "值守流程",
+              "复盘机制",
+              "合规检查"
+            ]
+          },
+          {
+            key: "工具",
+            label: "工具平台",
+            color: "#f472b6",
+            leaves: [
+              "流水线",
+              "自动化测试",
+              "监控看板",
+              "日志追踪",
+              "告警联动",
+              "数据联邦",
+              "知识库"
+            ]
+          },
+          {
+            key: "环境",
+            label: "环境依赖",
+            color: "#34d399",
+            leaves: [
+              "多机房部署",
+              "容量规划",
+              "网络冗余",
+              "数据库主从",
+              "中间件升级",
+              "变更演练",
+              "灾备切换"
+            ]
+          },
+          {
+            key: "数据",
+            label: "数据质量",
+            color: "#facc15",
+            leaves: [
+              "指标口径",
+              "口径对齐",
+              "数据清洗",
+              "采集延迟",
+              "归档策略",
+              "权限隔离",
+              "审计追溯"
+            ]
+          },
+          {
+            key: "协同",
+            label: "协同机制",
+            color: "#22d3ee",
+            leaves: [
+              "例会节奏",
+              "需求对齐",
+              "跨部门群",
+              "共享文档",
+              "问题追踪",
+              "升级通道",
+              "客户反馈"
+            ]
+          }
+        ];
+
+        const nodes = [
+          {
+            key: rootKey,
+            text: "线上缺陷激增",
+            color: "#f97316",
+            weight: "Bold",
+            size: 18
+          }
+        ];
+
+        let linkCount = 0;
+
+        categories.forEach((category) => {
+          nodes.push({
+            key: category.key,
+            parent: rootKey,
+            text: category.label,
+            color: category.color,
+            weight: "Bold",
+            size: 16
+          });
+          linkCount += 1;
+
+          category.leaves.forEach((leaf, index) => {
+            const leafKey = `${category.key}-${index}`;
+            nodes.push({
+              key: leafKey,
+              parent: category.key,
+              text: leaf,
+              color: category.color
+            });
+            linkCount += 1;
+          });
+        });
+
+        const diagram = $(go.Diagram, "diagramDiv", {
+          layout: new FishboneLayout({
+            angle: 0,
+            layerSpacing: 32,
+            nodeSpacing: 24
+          }),
+          initialAutoScale: go.Diagram.Uniform,
+          allowZoom: true,
+          padding: 20,
+          "undoManager.isEnabled": false
+        });
+
+        diagram.nodeTemplate = $(
+          go.Node,
+          "Auto",
+          $(
+            go.Shape,
+            "RoundedRectangle",
+            {
+              fill: "rgba(15, 23, 42, 0.88)",
+              stroke: "rgba(148, 163, 184, 0.3)",
+              strokeWidth: 1,
+              spot1: go.Spot.TopLeft,
+              spot2: go.Spot.BottomRight
+            },
+            new go.Binding("fill", "color", (c) => (c ? go.Brush.mix("#0f172a", c, 0.7) : "rgba(15, 23, 42, 0.88)"))
+          ),
+          $(
+            go.TextBlock,
+            {
+              margin: 6,
+              stroke: "#e2e8f0",
+              font: "12px 'Segoe UI'",
+              wrap: go.TextBlock.WrapFit,
+              maxSize: new go.Size(140, NaN)
+            },
+            new go.Binding("text", "text"),
+            new go.Binding("font", "size", (s, data) => {
+              const weight = data.weight ? `${data.weight} ` : "";
+              const size = s || 12;
+              return `${weight}${size}px 'Segoe UI'`;
+            })
+          )
+        );
+
+        diagram.linkTemplate = $(
+          FishboneLink,
+          {
+            selectable: false
+          },
+          $(go.Shape, { stroke: "rgba(148, 163, 184, 0.65)", strokeWidth: 1.4 })
+        );
+
+        diagram.model = new go.TreeModel({
+          nodeDataArray: nodes
+        });
+
+        const stats = document.getElementById("stats");
+        if (stats) {
+          stats.textContent = `节点数：${nodes.length} · 连接数：${linkCount}`;
+        }
+      });
+    </script>
+  </body>
+</html>
