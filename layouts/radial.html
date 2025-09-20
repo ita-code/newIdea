@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RadialLayout 示例 | GoJS 布局画廊</title>
+    <script src="https://unpkg.com/gojs/release/go.js"></script>
+    <script src="https://gojs.net/latest/extensions/RadialLayout.js"></script>
+    <style>
+      body {
+        margin: 0;
+        font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+        background: radial-gradient(circle at top, #1e3a8a 0%, #0f172a 45%, #020617 100%);
+        color: #f8fafc;
+      }
+
+      header {
+        padding: 32px 16px 20px;
+        text-align: center;
+      }
+
+      header h1 {
+        margin: 0 0 10px;
+        font-size: clamp(26px, 4vw, 38px);
+        letter-spacing: 0.05em;
+      }
+
+      header p {
+        margin: 0 auto;
+        max-width: 680px;
+        line-height: 1.6;
+        color: rgba(226, 232, 240, 0.8);
+      }
+
+      main {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 18px 16px 56px;
+      }
+
+      .toolbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-bottom: 14px;
+      }
+
+      .back-link {
+        color: #60a5fa;
+        text-decoration: none;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .back-link::before {
+        content: "←";
+        font-size: 18px;
+      }
+
+      #diagramDiv {
+        width: 100%;
+        height: 640px;
+        border-radius: 20px;
+        background: radial-gradient(circle at center, rgba(59, 130, 246, 0.18), rgba(15, 23, 42, 0.95));
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        box-shadow: 0 28px 60px rgba(2, 6, 23, 0.6);
+      }
+
+      .legend {
+        margin-top: 20px;
+        padding: 18px 20px;
+        border-radius: 16px;
+        background: rgba(15, 23, 42, 0.72);
+        border: 1px solid rgba(148, 163, 184, 0.28);
+        display: grid;
+        gap: 10px;
+        font-size: 14px;
+      }
+
+      .legend strong {
+        color: #bfdbfe;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>RadialLayout 示例</h1>
+      <p>
+        以核心节点为中心的同心层结构，展示 50 个节点的辐射式扩散关系，适合呈现知识地图或职能辐射网络。
+      </p>
+    </header>
+    <main>
+      <div class="toolbar">
+        <a class="back-link" href="../index.html">返回布局画廊</a>
+        <span id="stats">节点数：0 · 连接数：0</span>
+      </div>
+      <div id="diagramDiv" role="presentation" aria-label="RadialLayout 示例"></div>
+      <div class="legend">
+        <div><strong>层级划分</strong>：按照距离中心的层数分配半径，越靠外表示与核心概念距离越远。</div>
+        <div><strong>配色策略</strong>：不同射线分支使用渐变色系，强化主题分组效果。</div>
+      </div>
+    </main>
+    <script>
+      window.addEventListener("DOMContentLoaded", () => {
+        const $ = go.GraphObject.make;
+
+        const colors = ["#38bdf8", "#818cf8", "#a855f7", "#f97316", "#22c55e", "#facc15"];
+        const nodeDataArray = [{ key: "核心", text: "核心主题", color: "#f97316" }];
+
+        const branchConfigs = [
+          { label: "市场洞察", color: colors[0], leafCounts: [2, 2, 2] },
+          { label: "产品路线", color: colors[1], leafCounts: [3, 2] },
+          { label: "渠道策略", color: colors[2], leafCounts: [2, 1] },
+          { label: "实施计划", color: colors[3], leafCounts: [3, 2, 2] },
+          { label: "团队协同", color: colors[4], leafCounts: [2, 2] },
+          { label: "度量反馈", color: colors[5], leafCounts: [2, 2] }
+        ];
+
+        const branchBaseTexts = [
+          ["趋势洞察", "用户研究", "竞品观测"],
+          ["阶段规划", "能力演进"],
+          ["渠道拓展", "伙伴共建"],
+          ["里程碑", "资源匹配", "风险防控"],
+          ["沟通机制", "协作流程"],
+          ["指标设计", "复盘优化"]
+        ];
+
+        const detailBaseTexts = [
+          ["社交舆情", "行业报告", "关键词监控"],
+          ["深访画像", "问卷回收", "体验反馈"],
+          ["竞品矩阵", "差异亮点", "策略比较"],
+          ["发布节奏", "功能演进", "技术栈"],
+          ["能力图谱", "实验沙箱", "创新储备"],
+          ["渠道评分", "联合营销", "区域运营"],
+          ["生态伙伴", "代理体系", "培训计划"],
+          ["路线图", "执行表"],
+          ["预算评估", "人力安排", "外包协同"],
+          ["风险识别", "预案演练"],
+          ["例会节奏", "共识库", "透明看板"],
+          ["工具整合", "跨部门对齐"],
+          ["北极星指标", "仪表盘"],
+          ["复盘例会", "试验管理"],
+          ["持续改进", "经验沉淀"]
+        ];
+
+        let detailIndex = 0;
+        branchConfigs.forEach((config, branchIndex) => {
+          const branchKey = `B${branchIndex}`;
+          nodeDataArray.push({ key: branchKey, parent: "核心", text: config.label, color: config.color });
+
+          const topics = branchBaseTexts[branchIndex] || [];
+          config.leafCounts.forEach((leafCount, topicIndex) => {
+            const topicKey = `${branchKey}-T${topicIndex}`;
+            const topicText = topics[topicIndex] || `主题 ${branchIndex + 1}-${topicIndex + 1}`;
+            nodeDataArray.push({ key: topicKey, parent: branchKey, text: topicText, color: config.color });
+
+            for (let leaf = 0; leaf < leafCount; leaf++) {
+              const detailKey = `${topicKey}-D${leaf}`;
+              const baseText = detailBaseTexts[detailIndex] || [];
+              const detailText = baseText[leaf] || `要点 ${branchIndex + 1}-${topicIndex + 1}-${leaf + 1}`;
+              nodeDataArray.push({
+                key: detailKey,
+                parent: topicKey,
+                text: detailText,
+                color: config.color
+              });
+            }
+            detailIndex = Math.min(detailIndex + 1, detailBaseTexts.length - 1);
+          });
+        });
+
+        const diagram = $(go.Diagram, "diagramDiv", {
+          layout: new RadialLayout({ layerThickness: 120, maxLayers: 4 }),
+          padding: 32,
+          "undoManager.isEnabled": false,
+          initialAutoScale: go.Diagram.Uniform
+        });
+
+        diagram.nodeTemplate = $(
+          go.Node,
+          "Auto",
+          $(
+            go.Shape,
+            "RoundedRectangle",
+            {
+              fill: "rgba(15, 23, 42, 0.9)",
+              stroke: "rgba(148, 163, 184, 0.4)",
+              strokeWidth: 1,
+              spot1: go.Spot.TopLeft,
+              spot2: go.Spot.BottomRight
+            },
+            new go.Binding("fill", "color", (c) => go.Brush.mix("#0f172a", c || "#38bdf8", 0.75))
+          ),
+          $(
+            go.TextBlock,
+            {
+              margin: new go.Margin(6, 8, 6, 8),
+              stroke: "#e2e8f0",
+              font: "600 12px 'Segoe UI'",
+              maxSize: new go.Size(120, NaN),
+              wrap: go.TextBlock.WrapFit
+            },
+            new go.Binding("text", "text")
+          )
+        );
+
+        diagram.linkTemplate = $(
+          go.Link,
+          { routing: go.Link.Normal, curve: go.Link.Bezier, selectable: false, opacity: 0.8 },
+          $(go.Shape, { strokeWidth: 1.1, stroke: "rgba(148, 163, 184, 0.35)" })
+        );
+
+        diagram.model = new go.TreeModel(nodeDataArray);
+
+        const rootNode = diagram.findNodeForKey("核心");
+        if (rootNode) {
+          diagram.layout.root = rootNode;
+          diagram.centerRect(rootNode.actualBounds);
+        }
+
+        const stats = document.getElementById("stats");
+        if (stats) {
+          const linkCount = nodeDataArray.length - 1;
+          stats.textContent = `节点数：${nodeDataArray.length} · 连接数：${linkCount}`;
+        }
+      });
+    </script>
+  </body>
+</html>

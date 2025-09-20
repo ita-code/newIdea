@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ParallelLayout 示例 | GoJS 布局画廊</title>
+    <script src="https://unpkg.com/gojs/release/go.js"></script>
+    <script src="https://gojs.net/latest/extensions/ParallelLayout.js"></script>
+    <style>
+      body {
+        margin: 0;
+        font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+        background: linear-gradient(160deg, #0f172a 0%, #1e293b 40%, #1e293b 100%);
+        color: #f8fafc;
+      }
+
+      header {
+        padding: 30px 16px 18px;
+        text-align: center;
+      }
+
+      header h1 {
+        margin: 0 0 10px;
+        font-size: clamp(26px, 4vw, 38px);
+        letter-spacing: 0.06em;
+      }
+
+      header p {
+        margin: 0 auto;
+        max-width: 720px;
+        line-height: 1.6;
+        color: rgba(226, 232, 240, 0.82);
+      }
+
+      main {
+        max-width: 1140px;
+        margin: 0 auto;
+        padding: 20px 16px 56px;
+      }
+
+      .toolbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-bottom: 16px;
+      }
+
+      .back-link {
+        color: #38bdf8;
+        text-decoration: none;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .back-link::before {
+        content: "←";
+        font-size: 18px;
+      }
+
+      #diagramDiv {
+        width: 100%;
+        height: 640px;
+        border-radius: 18px;
+        background: radial-gradient(circle at center, rgba(56, 189, 248, 0.16), rgba(15, 23, 42, 0.95));
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        box-shadow: 0 28px 62px rgba(15, 23, 42, 0.55);
+      }
+
+      .legend {
+        margin-top: 20px;
+        padding: 18px 20px;
+        border-radius: 16px;
+        background: rgba(15, 23, 42, 0.72);
+        border: 1px solid rgba(148, 163, 184, 0.26);
+        display: grid;
+        gap: 10px;
+        font-size: 14px;
+      }
+
+      .legend strong {
+        color: #bfdbfe;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>ParallelLayout 示例</h1>
+      <p>
+        通过 ParallelLayout 将 4 条并行流程展开，展示从统一分流节点出发的 50 个步骤如何分支执行、最终在合流节点完成评审。
+      </p>
+    </header>
+    <main>
+      <div class="toolbar">
+        <a class="back-link" href="../index.html">返回布局画廊</a>
+        <span id="stats">节点数：0 · 连接数：0</span>
+      </div>
+      <div id="diagramDiv" role="presentation" aria-label="ParallelLayout 示例"></div>
+      <div class="legend">
+        <div><strong>分支说明：</strong>不同颜色代表市场、产品、交付、运营四条执行支路，全部继承同一个分流节点。</div>
+        <div><strong>交叉依赖：</strong>横向虚线记录关键协作节点，体现并行流程之间的同步动作。</div>
+      </div>
+    </main>
+    <script>
+      window.addEventListener("DOMContentLoaded", () => {
+        const $ = go.GraphObject.make;
+
+        const lanes = [
+          { id: "M", name: "市场验证", color: "#38bdf8" },
+          { id: "P", name: "产品打磨", color: "#f472b6" },
+          { id: "D", name: "交付准备", color: "#34d399" },
+          { id: "O", name: "运营铺排", color: "#facc15" }
+        ];
+
+        const tasksPerLane = 12;
+        const splitKey = "Split";
+        const mergeKey = "Merge";
+
+        const nodes = [
+          { key: splitKey, category: "Split", text: "全局分流", color: "#38bdf8" },
+          { key: mergeKey, category: "Merge", text: "统一验收", color: "#34d399" }
+        ];
+
+        const links = [];
+
+        lanes.forEach((lane) => {
+          for (let i = 0; i < tasksPerLane; i++) {
+            const key = `${lane.id}-${i}`;
+            nodes.push({
+              key,
+              text: `${lane.name} ${i + 1}`,
+              lane: lane.name,
+              color: lane.color
+            });
+
+            if (i === 0) {
+              links.push({ from: splitKey, to: key });
+            } else {
+              links.push({ from: `${lane.id}-${i - 1}`, to: key });
+            }
+
+            if (i === tasksPerLane - 1) {
+              links.push({ from: key, to: mergeKey });
+            }
+          }
+        });
+
+        const syncPairs = [
+          ["M-3", "P-2"],
+          ["P-5", "D-4"],
+          ["D-6", "O-5"],
+          ["M-8", "D-7"],
+          ["P-9", "O-8"],
+          ["D-10", "M-11"],
+          ["O-9", "P-10"]
+        ];
+
+        syncPairs.forEach(([from, to]) => {
+          links.push({ from, to, category: "sync" });
+        });
+
+        const diagram = $(go.Diagram, "diagramDiv", {
+          layout: new ParallelLayout({
+            layerSpacing: 40,
+            nodeSpacing: 18
+          }),
+          "undoManager.isEnabled": false,
+          initialAutoScale: go.Diagram.Uniform,
+          allowZoom: true,
+          padding: 20
+        });
+
+        function createNodeTemplate(fill, shape, size) {
+          return $(
+            go.Node,
+            "Auto",
+            { locationSpot: go.Spot.Center },
+            $(
+              go.Shape,
+              shape,
+              {
+                fill,
+                stroke: "rgba(15, 23, 42, 0.2)",
+                strokeWidth: 0,
+                desiredSize: size
+              },
+              new go.Binding("fill", "color", (c) => c || fill)
+            ),
+            $(
+              go.TextBlock,
+              {
+                margin: 6,
+                stroke: "#0f172a",
+                font: "bold 12px 'Segoe UI'",
+                background: "rgba(248, 250, 252, 0.9)",
+                maxSize: new go.Size(130, NaN)
+              },
+              new go.Binding("text", "text")
+            )
+          );
+        }
+
+        diagram.nodeTemplate = createNodeTemplate("rgba(30, 64, 175, 0.28)", "RoundedRectangle", new go.Size(140, 54));
+        diagram.nodeTemplateMap.add(
+          "Split",
+          createNodeTemplate("#38bdf8", "Diamond", new go.Size(44, 44))
+        );
+        diagram.nodeTemplateMap.add(
+          "Merge",
+          createNodeTemplate("#34d399", "Circle", new go.Size(44, 44))
+        );
+
+        diagram.linkTemplate = $(
+          go.Link,
+          {
+            routing: go.Link.Orthogonal,
+            corner: 6,
+            selectable: false,
+            fromSpot: go.Spot.Right,
+            toSpot: go.Spot.Left
+          },
+          $(go.Shape, { strokeWidth: 1.8, stroke: "rgba(148, 163, 184, 0.7)" })
+        );
+
+        diagram.linkTemplateMap.add(
+          "sync",
+          $(
+            go.Link,
+            {
+              curve: go.Link.Bezier,
+              adjusting: go.Link.End,
+              selectable: false,
+              opacity: 0.75
+            },
+            $(go.Shape, {
+              strokeWidth: 1.4,
+              stroke: "rgba(56, 189, 248, 0.65)",
+              strokeDashArray: [6, 3]
+            }),
+            $(go.Shape, { toArrow: "Standard", fill: "rgba(56, 189, 248, 0.75)", stroke: null, scale: 0.9 })
+          )
+        );
+
+        diagram.model = new go.GraphLinksModel(nodes, links);
+
+        const stats = document.getElementById("stats");
+        if (stats) {
+          stats.textContent = `节点数：${nodes.length} · 连接数：${links.length}`;
+        }
+      });
+    </script>
+  </body>
+</html>
