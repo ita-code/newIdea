@@ -14,7 +14,12 @@
         margin: 0;
         font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
         color: #e2e8f0;
-        background: radial-gradient(circle at top, #1f2937 0%, #0f172a 45%, #020617 100%);
+        background: radial-gradient(
+          circle at top,
+          #1f2937 0%,
+          #0f172a 45%,
+          #020617 100%
+        );
         min-height: 100vh;
       }
 
@@ -144,7 +149,11 @@
         width: 100%;
         height: 640px;
         border-radius: 18px;
-        background: radial-gradient(circle at center, rgba(30, 64, 175, 0.24), rgba(15, 23, 42, 0.95));
+        background: radial-gradient(
+          circle at center,
+          rgba(30, 64, 175, 0.24),
+          rgba(15, 23, 42, 0.95)
+        );
         border: 1px solid rgba(148, 163, 184, 0.2);
       }
 
@@ -228,7 +237,7 @@
     <header>
       <h1>配电网运行监控示例</h1>
       <p>
-        该示例以 110kV 石景山变电站为核心，搭建四条主馈线及多处联络开关。
+        该示例以 110kV 石景山变电站为核心，搭建三条主馈线及两处联络开关。
         可视化展示站-线-台区-用户的层级结构，同时提供负荷统计、馈线聚焦、停电演练与负荷均衡等交互能力，帮助快速体验配电自动化的日常监控流程。
       </p>
     </header>
@@ -242,7 +251,6 @@
             <option value="F1">Ⅰ# 馈线</option>
             <option value="F2">Ⅱ# 馈线</option>
             <option value="F3">Ⅲ# 馈线</option>
-            <option value="F4">Ⅳ# 馈线</option>
           </select>
           <button class="danger" id="simulateOutage">模拟故障转供</button>
           <button class="secondary" id="balanceLoad">均衡负荷方案</button>
@@ -265,19 +273,22 @@
           <h2>运行监控面板</h2>
           <div class="legend" aria-label="符号图例">
             <div class="legend-item">
-              <span class="legend-swatch" style="background:#14b8a6"></span>
+              <span class="legend-swatch" style="background: #14b8a6"></span>
               <span>绿色：运行正常</span>
             </div>
             <div class="legend-item">
-              <span class="legend-swatch" style="background:#f59e0b"></span>
+              <span class="legend-swatch" style="background: #f59e0b"></span>
               <span>橙色：负荷预警</span>
             </div>
             <div class="legend-item">
-              <span class="legend-swatch" style="background:#ef4444"></span>
+              <span class="legend-swatch" style="background: #ef4444"></span>
               <span>红色：停电或退出</span>
             </div>
             <div class="legend-item">
-              <span class="legend-swatch" style="background:linear-gradient(135deg,#38bdf8,#60a5fa)"></span>
+              <span
+                class="legend-swatch"
+                style="background: linear-gradient(135deg, #38bdf8, #60a5fa)"
+              ></span>
               <span>虚线：联络开关反送通道</span>
             </div>
           </div>
@@ -337,7 +348,6 @@
           F1: "Ⅰ# 馈线",
           F2: "Ⅱ# 馈线",
           F3: "Ⅲ# 馈线",
-          F4: "Ⅳ# 馈线",
         };
 
         function statusFill(status) {
@@ -389,19 +399,35 @@
                     },
                     new go.Binding("text", "text")
                   ),
-                  $(go.TextBlock, "类型", { row: 1, column: 0, stroke: "#94a3b8" }),
+                  $(go.TextBlock, "类型", {
+                    row: 1,
+                    column: 0,
+                    stroke: "#94a3b8",
+                  }),
                   $(
                     go.TextBlock,
                     { row: 1, column: 1, stroke: "#e2e8f0" },
-                    new go.Binding("text", "category", (c) => typeLabelMap[c] || "设备")
+                    new go.Binding(
+                      "text",
+                      "category",
+                      (c) => typeLabelMap[c] || "设备"
+                    )
                   ),
-                  $(go.TextBlock, "状态", { row: 2, column: 0, stroke: "#94a3b8" }),
+                  $(go.TextBlock, "状态", {
+                    row: 2,
+                    column: 0,
+                    stroke: "#94a3b8",
+                  }),
                   $(
                     go.TextBlock,
                     { row: 2, column: 1, stroke: "#e2e8f0" },
                     new go.Binding("text", "status", statusLabel)
                   ),
-                  $(go.TextBlock, "负荷", { row: 3, column: 0, stroke: "#94a3b8" }),
+                  $(go.TextBlock, "负荷", {
+                    row: 3,
+                    column: 0,
+                    stroke: "#94a3b8",
+                  }),
                   $(
                     go.TextBlock,
                     { row: 3, column: 1, stroke: "#e2e8f0" },
@@ -433,6 +459,7 @@
                   margin: new go.Margin(10, 12, 10, 12),
                   alignment: go.Spot.Center,
                   defaultAlignment: go.Spot.Center,
+                  gap: 4,
                 },
                 $(
                   go.TextBlock,
@@ -442,7 +469,6 @@
                     textAlign: "center",
                     wrap: go.TextBlock.WrapFit,
                     width: options.width - 24,
-                    margin: new go.Margin(0, 0, 6, 0),
                   },
                   new go.Binding("text", "text")
                 ),
@@ -454,7 +480,6 @@
                     textAlign: "center",
                     wrap: go.TextBlock.WrapFit,
                     width: options.width - 24,
-                    margin: new go.Margin(0, 0, 4, 0),
                   },
                   new go.Binding("text", "status", statusLabel)
                 ),
@@ -466,7 +491,6 @@
                     textAlign: "center",
                     wrap: go.TextBlock.WrapFit,
                     width: options.width - 24,
-                    margin: new go.Margin(0, 0, 2, 0),
                   },
                   new go.Binding("text", "", formatLoad)
                 )
@@ -483,7 +507,9 @@
                 opacity: 0,
                 parameter1: options.corner || 0,
               },
-              new go.Binding("opacity", "isHighlighted", (h) => (h ? 1 : 0)).ofObject()
+              new go.Binding("opacity", "isHighlighted", (h) =>
+                h ? 1 : 0
+              ).ofObject()
             )
           );
         }
@@ -502,15 +528,30 @@
 
         diagram.nodeTemplateMap.add(
           "substation",
-          makeTemplate({ figure: "RoundedRectangle", width: 170, height: 96, corner: 14 })
+          makeTemplate({
+            figure: "RoundedRectangle",
+            width: 170,
+            height: 96,
+            corner: 14,
+          })
         );
         diagram.nodeTemplateMap.add(
           "feeder",
-          makeTemplate({ figure: "RoundedRectangle", width: 150, height: 90, corner: 12 })
+          makeTemplate({
+            figure: "RoundedRectangle",
+            width: 150,
+            height: 90,
+            corner: 12,
+          })
         );
         diagram.nodeTemplateMap.add(
           "transformer",
-          makeTemplate({ figure: "RoundedRectangle", width: 140, height: 84, corner: 12 })
+          makeTemplate({
+            figure: "RoundedRectangle",
+            width: 140,
+            height: 84,
+            corner: 12,
+          })
         );
         diagram.nodeTemplateMap.add(
           "load",
@@ -535,8 +576,12 @@
               stroke: "rgba(148, 163, 184, 0.55)",
               strokeWidth: 2,
             },
-            new go.Binding("stroke", "isHighlighted", (h) => (h ? "#fde68a" : "rgba(148, 163, 184, 0.55)")).ofObject(),
-            new go.Binding("strokeWidth", "isHighlighted", (h) => (h ? 3.4 : 2)).ofObject()
+            new go.Binding("stroke", "isHighlighted", (h) =>
+              h ? "#fde68a" : "rgba(148, 163, 184, 0.55)"
+            ).ofObject(),
+            new go.Binding("strokeWidth", "isHighlighted", (h) =>
+              h ? 3.4 : 2
+            ).ofObject()
           ),
           $(
             go.Shape,
@@ -545,7 +590,9 @@
               fill: "rgba(148, 163, 184, 0.9)",
               stroke: null,
             },
-            new go.Binding("fill", "isHighlighted", (h) => (h ? "#fde68a" : "rgba(148, 163, 184, 0.9)")).ofObject()
+            new go.Binding("fill", "isHighlighted", (h) =>
+              h ? "#fde68a" : "rgba(148, 163, 184, 0.9)"
+            ).ofObject()
           )
         );
 
@@ -565,8 +612,12 @@
                 strokeWidth: 2,
                 strokeDashArray: [6, 4],
               },
-              new go.Binding("stroke", "isHighlighted", (h) => (h ? "#facc15" : "rgba(56, 189, 248, 0.85)")).ofObject(),
-              new go.Binding("strokeWidth", "isHighlighted", (h) => (h ? 3.4 : 2)).ofObject()
+              new go.Binding("stroke", "isHighlighted", (h) =>
+                h ? "#facc15" : "rgba(56, 189, 248, 0.85)"
+              ).ofObject(),
+              new go.Binding("strokeWidth", "isHighlighted", (h) =>
+                h ? 3.4 : 2
+              ).ofObject()
             ),
             $(
               go.Shape,
@@ -575,7 +626,9 @@
                 fill: "rgba(56, 189, 248, 0.85)",
                 stroke: null,
               },
-              new go.Binding("fill", "isHighlighted", (h) => (h ? "#facc15" : "rgba(56, 189, 248, 0.85)")).ofObject()
+              new go.Binding("fill", "isHighlighted", (h) =>
+                h ? "#facc15" : "rgba(56, 189, 248, 0.85)"
+              ).ofObject()
             )
           )
         );
@@ -587,9 +640,9 @@
             text: "石景山 110kV 变电站",
             status: "normal",
             baseStatus: "normal",
-            load: 24.6,
-            baseLoad: 24.6,
-            capacity: 60,
+            load: 18.2,
+            baseLoad: 18.2,
+            capacity: 40,
             unit: "MW",
           },
           {
@@ -598,9 +651,9 @@
             text: "Ⅰ# 馈线",
             status: "normal",
             baseStatus: "normal",
-            load: 6.5,
-            baseLoad: 6.5,
-            capacity: 12,
+            load: 6.4,
+            baseLoad: 6.4,
+            capacity: 10,
             unit: "MW",
             feeder: "F1",
           },
@@ -610,9 +663,9 @@
             text: "Ⅱ# 馈线",
             status: "normal",
             baseStatus: "normal",
-            load: 6.0,
-            baseLoad: 6.0,
-            capacity: 12,
+            load: 6.1,
+            baseLoad: 6.1,
+            capacity: 10,
             unit: "MW",
             feeder: "F2",
           },
@@ -622,23 +675,11 @@
             text: "Ⅲ# 馈线",
             status: "normal",
             baseStatus: "normal",
-            load: 5.8,
-            baseLoad: 5.8,
-            capacity: 12,
-            unit: "MW",
-            feeder: "F3",
-          },
-          {
-            key: "F4",
-            category: "feeder",
-            text: "Ⅳ# 馈线",
-            status: "normal",
-            baseStatus: "normal",
             load: 5.7,
             baseLoad: 5.7,
-            capacity: 12,
+            capacity: 10,
             unit: "MW",
-            feeder: "F4",
+            feeder: "F3",
           },
           {
             key: "SW12",
@@ -663,35 +704,13 @@
             baseState: "open",
           },
           {
-            key: "SW24",
-            category: "switch",
-            text: "联络开关 C",
-            status: "normal",
-            baseStatus: "normal",
-            feeder: "Tie",
-            connectedFeeders: ["F2", "F4"],
-            state: "open",
-            baseState: "open",
-          },
-          {
-            key: "SW14",
-            category: "switch",
-            text: "联络开关 D",
-            status: "normal",
-            baseStatus: "normal",
-            feeder: "Tie",
-            connectedFeeders: ["F1", "F4"],
-            state: "open",
-            baseState: "open",
-          },
-          {
             key: "T11",
             category: "transformer",
             text: "城南#1 配电室",
             status: "normal",
             baseStatus: "normal",
-            load: 2.3,
-            baseLoad: 2.3,
+            load: 2.8,
+            baseLoad: 2.8,
             feeder: "F1",
             unit: "MW",
           },
@@ -701,19 +720,8 @@
             text: "城南#2 配电室",
             status: "normal",
             baseStatus: "normal",
-            load: 2.1,
-            baseLoad: 2.1,
-            feeder: "F1",
-            unit: "MW",
-          },
-          {
-            key: "T13",
-            category: "transformer",
-            text: "万达商业区",
-            status: "normal",
-            baseStatus: "normal",
-            load: 2.1,
-            baseLoad: 2.1,
+            load: 3.0,
+            baseLoad: 3.0,
             feeder: "F1",
             unit: "MW",
           },
@@ -723,8 +731,8 @@
             text: "永丰工业区",
             status: "normal",
             baseStatus: "normal",
-            load: 2.0,
-            baseLoad: 2.0,
+            load: 2.9,
+            baseLoad: 2.9,
             feeder: "F2",
             unit: "MW",
           },
@@ -734,19 +742,8 @@
             text: "海淀科技园",
             status: "normal",
             baseStatus: "normal",
-            load: 2.2,
-            baseLoad: 2.2,
-            feeder: "F2",
-            unit: "MW",
-          },
-          {
-            key: "T23",
-            category: "transformer",
-            text: "清河生活区",
-            status: "normal",
-            baseStatus: "normal",
-            load: 1.8,
-            baseLoad: 1.8,
+            load: 3.0,
+            baseLoad: 3.0,
             feeder: "F2",
             unit: "MW",
           },
@@ -756,8 +753,8 @@
             text: "学院路站点",
             status: "normal",
             baseStatus: "normal",
-            load: 2.0,
-            baseLoad: 2.0,
+            load: 2.6,
+            baseLoad: 2.6,
             feeder: "F3",
             unit: "MW",
           },
@@ -767,53 +764,9 @@
             text: "中关村社区",
             status: "normal",
             baseStatus: "normal",
-            load: 1.9,
-            baseLoad: 1.9,
+            load: 2.5,
+            baseLoad: 2.5,
             feeder: "F3",
-            unit: "MW",
-          },
-          {
-            key: "T33",
-            category: "transformer",
-            text: "沙河高教园",
-            status: "normal",
-            baseStatus: "normal",
-            load: 1.9,
-            baseLoad: 1.9,
-            feeder: "F3",
-            unit: "MW",
-          },
-          {
-            key: "T41",
-            category: "transformer",
-            text: "南苑#1 配电室",
-            status: "normal",
-            baseStatus: "normal",
-            load: 2.6,
-            baseLoad: 2.6,
-            feeder: "F4",
-            unit: "MW",
-          },
-          {
-            key: "T42",
-            category: "transformer",
-            text: "南苑#2 配电室",
-            status: "normal",
-            baseStatus: "normal",
-            load: 2.1,
-            baseLoad: 2.1,
-            feeder: "F4",
-            unit: "MW",
-          },
-          {
-            key: "T43",
-            category: "transformer",
-            text: "空港保障区",
-            status: "normal",
-            baseStatus: "normal",
-            load: 1.0,
-            baseLoad: 1.0,
-            feeder: "F4",
             unit: "MW",
           },
           {
@@ -822,8 +775,8 @@
             text: "市政应急中心",
             status: "normal",
             baseStatus: "normal",
-            load: 1.1,
-            baseLoad: 1.1,
+            load: 1.2,
+            baseLoad: 1.2,
             feeder: "F1",
             unit: "MW",
           },
@@ -833,8 +786,8 @@
             text: "地铁运控室",
             status: "normal",
             baseStatus: "normal",
-            load: 1.0,
-            baseLoad: 1.0,
+            load: 1.1,
+            baseLoad: 1.1,
             feeder: "F1",
             unit: "MW",
           },
@@ -844,41 +797,8 @@
             text: "科技园宿舍区",
             status: "normal",
             baseStatus: "normal",
-            load: 1.0,
-            baseLoad: 1.0,
-            feeder: "F1",
-            unit: "MW",
-          },
-          {
-            key: "L122",
-            category: "load",
-            text: "创客孵化中心",
-            status: "normal",
-            baseStatus: "normal",
             load: 0.9,
             baseLoad: 0.9,
-            feeder: "F1",
-            unit: "MW",
-          },
-          {
-            key: "L131",
-            category: "load",
-            text: "万达写字楼",
-            status: "normal",
-            baseStatus: "normal",
-            load: 1.1,
-            baseLoad: 1.1,
-            feeder: "F1",
-            unit: "MW",
-          },
-          {
-            key: "L132",
-            category: "load",
-            text: "商业综合体",
-            status: "normal",
-            baseStatus: "normal",
-            load: 1.0,
-            baseLoad: 1.0,
             feeder: "F1",
             unit: "MW",
           },
@@ -888,8 +808,8 @@
             text: "永丰企业 A",
             status: "normal",
             baseStatus: "normal",
-            load: 0.9,
-            baseLoad: 0.9,
+            load: 1.0,
+            baseLoad: 1.0,
             feeder: "F2",
             unit: "MW",
           },
@@ -899,8 +819,8 @@
             text: "永丰企业 B",
             status: "normal",
             baseStatus: "normal",
-            load: 0.9,
-            baseLoad: 0.9,
+            load: 1.1,
+            baseLoad: 1.1,
             feeder: "F2",
             unit: "MW",
           },
@@ -910,8 +830,8 @@
             text: "科技园研发楼",
             status: "normal",
             baseStatus: "normal",
-            load: 1.1,
-            baseLoad: 1.1,
+            load: 0.9,
+            baseLoad: 0.9,
             feeder: "F2",
             unit: "MW",
           },
@@ -919,28 +839,6 @@
             key: "L222",
             category: "load",
             text: "产业加速器",
-            status: "normal",
-            baseStatus: "normal",
-            load: 1.0,
-            baseLoad: 1.0,
-            feeder: "F2",
-            unit: "MW",
-          },
-          {
-            key: "L231",
-            category: "load",
-            text: "清河居民 A",
-            status: "normal",
-            baseStatus: "normal",
-            load: 0.9,
-            baseLoad: 0.9,
-            feeder: "F2",
-            unit: "MW",
-          },
-          {
-            key: "L232",
-            category: "load",
-            text: "清河居民 B",
             status: "normal",
             baseStatus: "normal",
             load: 0.8,
@@ -954,8 +852,8 @@
             text: "高校教学楼",
             status: "normal",
             baseStatus: "normal",
-            load: 0.9,
-            baseLoad: 0.9,
+            load: 0.8,
+            baseLoad: 0.8,
             feeder: "F3",
             unit: "MW",
           },
@@ -965,8 +863,8 @@
             text: "高校实验室",
             status: "normal",
             baseStatus: "normal",
-            load: 0.8,
-            baseLoad: 0.8,
+            load: 0.9,
+            baseLoad: 0.9,
             feeder: "F3",
             unit: "MW",
           },
@@ -976,8 +874,8 @@
             text: "居民小区 A",
             status: "normal",
             baseStatus: "normal",
-            load: 0.9,
-            baseLoad: 0.9,
+            load: 0.7,
+            baseLoad: 0.7,
             feeder: "F3",
             unit: "MW",
           },
@@ -987,150 +885,60 @@
             text: "居民小区 B",
             status: "normal",
             baseStatus: "normal",
-            load: 0.8,
-            baseLoad: 0.8,
+            load: 0.7,
+            baseLoad: 0.7,
             feeder: "F3",
-            unit: "MW",
-          },
-          {
-            key: "L331",
-            category: "load",
-            text: "沙河学生宿舍",
-            status: "normal",
-            baseStatus: "normal",
-            load: 0.9,
-            baseLoad: 0.9,
-            feeder: "F3",
-            unit: "MW",
-          },
-          {
-            key: "L332",
-            category: "load",
-            text: "沙河实验楼",
-            status: "normal",
-            baseStatus: "normal",
-            load: 0.9,
-            baseLoad: 0.9,
-            feeder: "F3",
-            unit: "MW",
-          },
-          {
-            key: "L411",
-            category: "load",
-            text: "空港调度中心",
-            status: "normal",
-            baseStatus: "normal",
-            load: 1.3,
-            baseLoad: 1.3,
-            feeder: "F4",
-            unit: "MW",
-          },
-          {
-            key: "L412",
-            category: "load",
-            text: "空港物流园",
-            status: "normal",
-            baseStatus: "normal",
-            load: 1.2,
-            baseLoad: 1.2,
-            feeder: "F4",
-            unit: "MW",
-          },
-          {
-            key: "L421",
-            category: "load",
-            text: "南苑商业区",
-            status: "normal",
-            baseStatus: "normal",
-            load: 1.1,
-            baseLoad: 1.1,
-            feeder: "F4",
-            unit: "MW",
-          },
-          {
-            key: "L422",
-            category: "load",
-            text: "南苑居住区",
-            status: "normal",
-            baseStatus: "normal",
-            load: 1.0,
-            baseLoad: 1.0,
-            feeder: "F4",
-            unit: "MW",
-          },
-          {
-            key: "L431",
-            category: "load",
-            text: "空港保障宿舍",
-            status: "normal",
-            baseStatus: "normal",
-            load: 0.5,
-            baseLoad: 0.5,
-            feeder: "F4",
-            unit: "MW",
-          },
-          {
-            key: "L432",
-            category: "load",
-            text: "空港后勤中心",
-            status: "normal",
-            baseStatus: "normal",
-            load: 0.4,
-            baseLoad: 0.4,
-            feeder: "F4",
             unit: "MW",
           },
         ];
+
         const linkDataArray = [
           { from: "S1", to: "F1" },
           { from: "S1", to: "F2" },
           { from: "S1", to: "F3" },
-          { from: "S1", to: "F4" },
-          { from: "F1", to: "SW12", category: "tie", connectedFeeders: ["F1", "F2"] },
-          { from: "SW12", to: "F2", category: "tie", connectedFeeders: ["F1", "F2"] },
-          { from: "F3", to: "SW23", category: "tie", connectedFeeders: ["F2", "F3"] },
-          { from: "SW23", to: "F2", category: "tie", connectedFeeders: ["F2", "F3"] },
-          { from: "F2", to: "SW24", category: "tie", connectedFeeders: ["F2", "F4"] },
-          { from: "SW24", to: "F4", category: "tie", connectedFeeders: ["F2", "F4"] },
-          { from: "F1", to: "SW14", category: "tie", connectedFeeders: ["F1", "F4"] },
-          { from: "SW14", to: "F4", category: "tie", connectedFeeders: ["F1", "F4"] },
+          {
+            from: "F1",
+            to: "SW12",
+            category: "tie",
+            connectedFeeders: ["F1", "F2"],
+          },
+          {
+            from: "SW12",
+            to: "F2",
+            category: "tie",
+            connectedFeeders: ["F1", "F2"],
+          },
+          {
+            from: "F3",
+            to: "SW23",
+            category: "tie",
+            connectedFeeders: ["F2", "F3"],
+          },
+          {
+            from: "SW23",
+            to: "F2",
+            category: "tie",
+            connectedFeeders: ["F2", "F3"],
+          },
           { from: "F1", to: "T11" },
           { from: "F1", to: "T12" },
-          { from: "F1", to: "T13" },
           { from: "F2", to: "T21" },
           { from: "F2", to: "T22" },
-          { from: "F2", to: "T23" },
           { from: "F3", to: "T31" },
           { from: "F3", to: "T32" },
-          { from: "F3", to: "T33" },
-          { from: "F4", to: "T41" },
-          { from: "F4", to: "T42" },
-          { from: "F4", to: "T43" },
           { from: "T11", to: "L111" },
           { from: "T11", to: "L112" },
           { from: "T12", to: "L121" },
-          { from: "T12", to: "L122" },
-          { from: "T13", to: "L131" },
-          { from: "T13", to: "L132" },
           { from: "T21", to: "L211" },
           { from: "T21", to: "L212" },
           { from: "T22", to: "L221" },
           { from: "T22", to: "L222" },
-          { from: "T23", to: "L231" },
-          { from: "T23", to: "L232" },
           { from: "T31", to: "L311" },
           { from: "T31", to: "L312" },
           { from: "T32", to: "L321" },
           { from: "T32", to: "L322" },
-          { from: "T33", to: "L331" },
-          { from: "T33", to: "L332" },
-          { from: "T41", to: "L411" },
-          { from: "T41", to: "L412" },
-          { from: "T42", to: "L421" },
-          { from: "T42", to: "L422" },
-          { from: "T43", to: "L431" },
-          { from: "T43", to: "L432" },
         ];
+
         diagram.model = new go.GraphLinksModel(nodeDataArray, linkDataArray);
 
         const feederSelect = document.getElementById("feederSelect");
@@ -1178,7 +986,10 @@
               const feeders = node.data.connectedFeeders;
               if (node.data.feeder === feederKey) {
                 node.isHighlighted = true;
-              } else if (Array.isArray(feeders) && feeders.includes(feederKey)) {
+              } else if (
+                Array.isArray(feeders) &&
+                feeders.includes(feederKey)
+              ) {
                 node.isHighlighted = true;
               }
               if (node.data.key === "S1") {
@@ -1190,10 +1001,15 @@
               const toFeeder = link.toNode && link.toNode.data.feeder;
               if (
                 (fromFeeder === feederKey && toFeeder === feederKey) ||
-                (link.fromNode && link.fromNode.data.key === "S1" && toFeeder === feederKey)
+                (link.fromNode &&
+                  link.fromNode.data.key === "S1" &&
+                  toFeeder === feederKey)
               ) {
                 link.isHighlighted = true;
-              } else if (Array.isArray(link.data.connectedFeeders) && link.data.connectedFeeders.includes(feederKey)) {
+              } else if (
+                Array.isArray(link.data.connectedFeeders) &&
+                link.data.connectedFeeders.includes(feederKey)
+              ) {
                 link.isHighlighted = true;
               }
             });
@@ -1223,7 +1039,9 @@
           });
 
           networkStats.textContent = `正常 ${normal} · 预警 ${alert} · 停电 ${outage}`;
-          loadStats.textContent = `综合负荷 ${totalLoad.toFixed(1)} MW · 离线用户 ${offlineLoads}`;
+          loadStats.textContent = `综合负荷 ${totalLoad.toFixed(
+            1
+          )} MW · 离线用户 ${offlineLoads}`;
         }
 
         function updateDetailPanel(part) {
@@ -1233,20 +1051,28 @@
             detailType.textContent = typeLabelMap[data.category] || "设备";
             detailStatus.textContent = statusLabel(data.status);
             if (typeof data.load === "number") {
-              detailLoad.textContent = `${data.load.toFixed(1)} ${data.unit || "MW"}`;
+              detailLoad.textContent = `${data.load.toFixed(1)} ${
+                data.unit || "MW"
+              }`;
             } else {
               detailLoad.textContent = "-";
             }
             if (data.feeder && feederNameMap[data.feeder]) {
               detailFeeder.textContent = feederNameMap[data.feeder];
-            } else if (Array.isArray(data.connectedFeeders) && data.connectedFeeders.length) {
-              detailFeeder.textContent = data.connectedFeeders.map((f) => feederNameMap[f]).join(" / ");
+            } else if (
+              Array.isArray(data.connectedFeeders) &&
+              data.connectedFeeders.length
+            ) {
+              detailFeeder.textContent = data.connectedFeeders
+                .map((f) => feederNameMap[f])
+                .join(" / ");
             } else {
               detailFeeder.textContent = "站内";
             }
             if (data.state) {
               detailStateRow.style.display = "flex";
-              detailState.textContent = data.state === "closed" ? "闭合" : "分断";
+              detailState.textContent =
+                data.state === "closed" ? "闭合" : "分断";
             } else {
               detailStateRow.style.display = "none";
               detailState.textContent = "-";
@@ -1270,7 +1096,10 @@
             if (data.status !== baseStatus) {
               diagram.model.setDataProperty(data, "status", baseStatus);
             }
-            if (typeof data.baseLoad === "number" && data.load !== data.baseLoad) {
+            if (
+              typeof data.baseLoad === "number" &&
+              data.load !== data.baseLoad
+            ) {
               diagram.model.setDataProperty(data, "load", data.baseLoad);
             }
             if (data.baseState && data.state !== data.baseState) {
@@ -1293,42 +1122,23 @@
           diagram.startTransaction("simulate-outage");
           setStatus("F2", "alert");
           setStatus("T22", "outage");
-          setStatus("T23", "outage");
           setStatus("L221", "outage");
           setStatus("L222", "outage");
-          setStatus("L231", "outage");
-          setStatus("L232", "outage");
-          setLoad("F2", 3.4);
+          setLoad("F2", 4.2);
           setLoad("T22", 0);
-          setLoad("T23", 0);
           setLoad("L221", 0);
           setLoad("L222", 0);
-          setLoad("L231", 0);
-          setLoad("L232", 0);
           setStatus("SW23", "alert");
           setState("SW23", "closed");
-          setStatus("SW24", "alert");
-          setState("SW24", "closed");
           setStatus("F3", "alert");
-          setStatus("F4", "alert");
-          setLoad("F3", 7.0);
-          setLoad("T31", 2.6);
-          setLoad("T33", 2.4);
+          setLoad("F3", 7.1);
+          setLoad("T31", 3.1);
+          setLoad("L312", 1.3);
           setStatus("L312", "alert");
-          setLoad("L312", 1.1);
-          setStatus("L331", "alert");
-          setLoad("L331", 1.2);
-          setLoad("F4", 7.0);
-          setLoad("T41", 3.1);
-          setLoad("T42", 2.5);
-          setStatus("L421", "alert");
-          setLoad("L421", 1.4);
           diagram.links.each((link) => {
             if (
               (link.data.from === "F3" && link.data.to === "SW23") ||
-              (link.data.from === "SW23" && link.data.to === "F2") ||
-              (link.data.from === "F2" && link.data.to === "SW24") ||
-              (link.data.from === "SW24" && link.data.to === "F4")
+              (link.data.from === "SW23" && link.data.to === "F2")
             ) {
               link.isHighlighted = true;
             }
@@ -1344,30 +1154,16 @@
         function balanceLoad() {
           resetNetwork(false);
           diagram.startTransaction("balance-load");
-          setLoad("S1", 24.0);
           setLoad("F1", 6.0);
           setLoad("F2", 6.0);
-          setLoad("F3", 6.0);
-          setLoad("F4", 6.0);
-          setLoad("T11", 2.0);
-          setLoad("T12", 2.0);
-          setLoad("T13", 2.0);
-          setLoad("T21", 2.0);
-          setLoad("T22", 2.0);
-          setLoad("T23", 2.0);
-          setLoad("T31", 2.0);
-          setLoad("T32", 2.0);
-          setLoad("T33", 2.0);
-          setLoad("T41", 2.2);
-          setLoad("T42", 2.0);
-          setLoad("T43", 1.8);
+          setLoad("F3", 6.1);
+          setLoad("T12", 2.8);
+          setLoad("T22", 2.8);
+          setLoad("T32", 2.9);
           setLoad("L312", 1.0);
-          setLoad("L331", 1.0);
-          setLoad("L421", 1.2);
           setStatus("F1", "normal");
           setStatus("F2", "normal");
           setStatus("F3", "normal");
-          setStatus("F4", "normal");
           diagram.commitTransaction("balance-load");
           diagram.clearSelection();
           updateDetailPanel(null);
@@ -1385,9 +1181,15 @@
           highlightFeeder(feederSelect.value);
         });
 
-        document.getElementById("simulateOutage").addEventListener("click", simulateOutage);
-        document.getElementById("balanceLoad").addEventListener("click", balanceLoad);
-        document.getElementById("resetNetwork").addEventListener("click", () => resetNetwork(true));
+        document
+          .getElementById("simulateOutage")
+          .addEventListener("click", simulateOutage);
+        document
+          .getElementById("balanceLoad")
+          .addEventListener("click", balanceLoad);
+        document
+          .getElementById("resetNetwork")
+          .addEventListener("click", () => resetNetwork(true));
 
         resetNetwork(true);
       });
