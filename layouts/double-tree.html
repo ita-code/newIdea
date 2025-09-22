@@ -197,6 +197,12 @@
         diagram.nodeTemplate = $(
           go.Node,
           "Auto",
+          {
+            isShadowed: true,
+            shadowColor: "rgba(15, 23, 42, 0.18)",
+            shadowOffset: new go.Point(0, 3),
+            shadowBlur: 8,
+          },
           $(
             go.Shape,
             "RoundedRectangle",
@@ -206,10 +212,6 @@
               stroke: "rgba(148, 163, 184, 0.5)",
               spot1: go.Spot.TopLeft,
               spot2: go.Spot.BottomRight,
-              shadowVisible: true,
-              shadowColor: "rgba(15, 23, 42, 0.18)",
-              shadowOffset: new go.Point(0, 3),
-              shadowBlur: 8,
             },
             new go.Binding("fill", "color", (c) =>
               go.Brush.mix("#ffffff", c || "#2563eb", 0.18)

@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>PackedLayout 示例 | GoJS 布局画廊</title>
     <script src="https://unpkg.com/gojs/release/go.js"></script>
+    <script src="https://gojs.net/latest/extensions/Quadtree.js"></script>
     <script src="https://gojs.net/latest/extensions/PackedLayout.js"></script>
     <style>
       body {
@@ -171,15 +172,60 @@
           links.push({ from, to, category: "bridge" });
         });
 
+        const PackedLayoutCtor =
+          go.PackedLayout || (typeof PackedLayout !== "undefined" ? PackedLayout : null);
+
+        const packShapeEnum =
+          (PackedLayoutCtor &&
+            PackedLayoutCtor.PackShape &&
+            PackedLayoutCtor.PackShape.Elliptical) ||
+          (go.PackShape && go.PackShape.Elliptical) ||
+          (typeof PackShape !== "undefined" && PackShape.Elliptical) ||
+          null;
+
+        const packModeEnum =
+          (PackedLayoutCtor &&
+            PackedLayoutCtor.PackMode &&
+            PackedLayoutCtor.PackMode.Fit) ||
+          (go.PackMode && go.PackMode.Fit) ||
+          (typeof PackMode !== "undefined" && PackMode.Fit) ||
+          null;
+
+        const sortModeEnum =
+          (PackedLayoutCtor &&
+            PackedLayoutCtor.SortMode &&
+            PackedLayoutCtor.SortMode.Area) ||
+          (go.SortMode && go.SortMode.Area) ||
+          (typeof SortMode !== "undefined" && SortMode.Area) ||
+          null;
+
+        const sortOrderEnum =
+          (PackedLayoutCtor &&
+            PackedLayoutCtor.SortOrder &&
+            PackedLayoutCtor.SortOrder.Descending) ||
+          (go.SortOrder && go.SortOrder.Descending) ||
+          (typeof SortOrder !== "undefined" && SortOrder.Descending) ||
+          null;
+
+        const layoutOptions = {
+          aspectRatio: 1,
+          spacing: 16,
+        };
+
+        if (packShapeEnum) layoutOptions.packShape = packShapeEnum;
+        if (packModeEnum) layoutOptions.packMode = packModeEnum;
+        if (sortModeEnum) layoutOptions.sortMode = sortModeEnum;
+        if (sortOrderEnum) layoutOptions.sortOrder = sortOrderEnum;
+
+        const layoutInstance = PackedLayoutCtor
+          ? new PackedLayoutCtor(layoutOptions)
+          : new go.ForceDirectedLayout({
+              defaultSpringLength: 120,
+              defaultElectricalCharge: 240,
+            });
+
         const diagram = $(go.Diagram, "diagramDiv", {
-          layout: new go.PackedLayout({
-            packShape: PackShape.Elliptical,
-            packMode: PackMode.Fit,
-            aspectRatio: 1,
-            spacing: 16,
-            sortMode: SortMode.Area,
-            sortOrder: SortOrder.Descending,
-          }),
+          layout: layoutInstance,
           initialAutoScale: go.Diagram.Uniform,
           allowZoom: true,
           "undoManager.isEnabled": false,
