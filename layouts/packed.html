@@ -173,12 +173,12 @@
 
         const diagram = $(go.Diagram, "diagramDiv", {
           layout: new go.PackedLayout({
-            packShape: go.PackShape.Elliptical,
-            packMode: go.PackMode.Fit,
+            packShape: PackShape.Elliptical,
+            packMode: PackMode.Fit,
             aspectRatio: 1,
             spacing: 16,
-            sortMode: go.SortMode.Area,
-            sortOrder: go.SortOrder.Descending,
+            sortMode: SortMode.Area,
+            sortOrder: SortOrder.Descending,
           }),
           initialAutoScale: go.Diagram.Uniform,
           allowZoom: true,
