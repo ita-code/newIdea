@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>馈线主干示例 | GoJS 布局画廊</title>
+    <script src="https://unpkg.com/gojs/release/go.js"></script>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+
+      body {
+        margin: 0;
+        font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+        color: #e2e8f0;
+        background: radial-gradient(circle at top, #0f172a 0%, #020617 70%);
+        min-height: 100vh;
+      }
+
+      header {
+        padding: 32px 16px 12px;
+        text-align: center;
+      }
+
+      header h1 {
+        margin: 0 0 12px;
+        font-size: clamp(28px, 4vw, 40px);
+        letter-spacing: 0.05em;
+      }
+
+      header p {
+        margin: 0 auto;
+        max-width: 780px;
+        line-height: 1.7;
+        color: rgba(226, 232, 240, 0.78);
+      }
+
+      main {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 12px 16px 60px;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+      }
+
+      .toolbar {
+        display: flex;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+      }
+
+      .back-link {
+        color: #38bdf8;
+        text-decoration: none;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .back-link::before {
+        content: "←";
+        font-size: 18px;
+      }
+
+      #diagramDiv {
+        width: 100%;
+        height: 640px;
+        border-radius: 22px;
+        border: 1px solid rgba(148, 163, 184, 0.28);
+        background: radial-gradient(circle at center, rgba(59, 130, 246, 0.12), rgba(2, 6, 23, 0.92));
+        box-shadow: 0 28px 80px rgba(2, 6, 23, 0.65);
+      }
+
+      .legend {
+        display: grid;
+        gap: 10px;
+        font-size: 14px;
+        background: rgba(15, 23, 42, 0.72);
+        border-radius: 20px;
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        padding: 18px 20px;
+        box-shadow: 0 20px 60px rgba(2, 6, 23, 0.55);
+      }
+
+      .legend strong {
+        color: #38bdf8;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>馈线主干纵向展开示例</h1>
+      <p>
+        模拟 35kV 馈线的主干走向，并在干线节点上下布置分支台区、联络和重要负荷，强调“中间主干 + 上下分支”的配网巡检视图布局。
+      </p>
+    </header>
+    <main>
+      <div class="toolbar">
+        <a class="back-link" href="../index.html">返回布局画廊</a>
+        <span id="stats">节点数：0 · 连接数：0</span>
+      </div>
+      <div id="diagramDiv" role="presentation" aria-label="馈线主干示例"></div>
+      <div class="legend">
+        <div><strong>主干节点</strong>：以 order 排列在水平中心，表示沿线开关、分支箱。</div>
+        <div><strong>上行支路</strong>：side=top 的节点向上展开，用于表示联络线、环网柜。</div>
+        <div><strong>下行支路</strong>：side=bottom 的节点向下延展，展示台区和重要负荷。</div>
+      </div>
+    </main>
+    <script>
+      window.addEventListener("DOMContentLoaded", () => {
+        const $ = go.GraphObject.make;
+
+        class BackboneFeederLayout extends go.Layout {
+          constructor(init) {
+            super();
+            this.backboneSpacing = 160;
+            this.branchSpacing = 100;
+            this.levelSpacing = 90;
+            this.centerY = 0;
+            if (init) Object.assign(this, init);
+          }
+
+          doLayout(coll) {
+            const diagram = this.diagram;
+            if (!diagram) return;
+            diagram.startTransaction("Backbone Layout");
+
+            const collection = this.collectParts(coll);
+            if (collection.count === 0) {
+              diagram.commitTransaction("Backbone Layout");
+              return;
+            }
+
+            const backboneNodes = [];
+            collection.each((part) => {
+              if (part instanceof go.Node && part.data && part.data.backbone) {
+                backboneNodes.push(part);
+              }
+            });
+
+            backboneNodes.sort((a, b) => {
+              const ao = typeof a.data.order === "number" ? a.data.order : 0;
+              const bo = typeof b.data.order === "number" ? b.data.order : 0;
+              return ao - bo;
+            });
+
+            const origin = this.arrangementOrigin.copy();
+            const baseY = origin.y + this.centerY;
+            backboneNodes.forEach((node, index) => {
+              const point = new go.Point(origin.x + index * this.backboneSpacing, baseY);
+              node.move(point);
+            });
+
+            const layoutBranchSet = (parent, orientation) => {
+              const children = [];
+              const it = parent.findTreeChildrenNodes();
+              while (it.next()) {
+                const child = it.value;
+                if (!(child instanceof go.Node)) continue;
+                if (child.data && child.data.backbone) continue;
+                const side = child.data && child.data.side ? child.data.side : "bottom";
+                if (side !== orientation) continue;
+                children.push(child);
+              }
+
+              if (children.length === 0) return;
+
+              const base = parent.position;
+              const total = (children.length - 1) * this.branchSpacing;
+              children.forEach((child, idx) => {
+                const offsetX = idx * this.branchSpacing - total / 2;
+                const offsetY = orientation === "top" ? -this.levelSpacing : this.levelSpacing;
+                child.move(new go.Point(base.x + offsetX, base.y + offsetY));
+                layoutBranchSet(child, orientation);
+              });
+            };
+
+            backboneNodes.forEach((node) => {
+              layoutBranchSet(node, "top");
+              layoutBranchSet(node, "bottom");
+            });
+
+            diagram.commitTransaction("Backbone Layout");
+          }
+        }
+
+        const diagram = $(go.Diagram, "diagramDiv", {
+          layout: new BackboneFeederLayout({
+            backboneSpacing: 170,
+            branchSpacing: 110,
+            levelSpacing: 95,
+            centerY: 0,
+          }),
+          initialAutoScale: go.Diagram.Uniform,
+          padding: new go.Margin(40, 40, 40, 40),
+          "undoManager.isEnabled": false,
+        });
+
+        const statusPalette = {
+          normal: "#38bdf8",
+          warning: "#f97316",
+          outage: "#ef4444",
+          maintenance: "#a855f7",
+        };
+
+        diagram.nodeTemplate = $(
+          go.Node,
+          "Auto",
+          {
+            selectionAdorned: false,
+            desiredSize: new go.Size(120, 46),
+          },
+          $(
+            go.Shape,
+            "RoundedRectangle",
+            {
+              fill: "rgba(30, 41, 59, 0.85)",
+              stroke: "rgba(148, 163, 184, 0.4)",
+              strokeWidth: 1.2,
+            },
+            new go.Binding("fill", "backbone", (isBackbone) =>
+              isBackbone ? "rgba(59, 130, 246, 0.22)" : "rgba(30, 41, 59, 0.85)"
+            )
+          ),
+          $(
+            go.Panel,
+            "Horizontal",
+            { margin: 6, defaultAlignment: go.Spot.Center },
+            $(go.Shape, "Circle", {
+              width: 10,
+              height: 10,
+              strokeWidth: 0,
+              fill: "#38bdf8",
+            }, new go.Binding("fill", "status", (status) => statusPalette[status] || "#38bdf8")),
+            $(
+              go.Panel,
+              "Table",
+              { margin: new go.Margin(0, 0, 0, 6) },
+              $(
+                go.TextBlock,
+                {
+                  row: 0,
+                  column: 0,
+                  font: "600 13px 'Segoe UI'",
+                  stroke: "#f8fafc",
+                  maxSize: new go.Size(110, NaN),
+                  wrap: go.Wrap.Fit,
+                },
+                new go.Binding("text", "name")
+              ),
+              $(
+                go.TextBlock,
+                {
+                  row: 1,
+                  column: 0,
+                  font: "12px 'Segoe UI'",
+                  stroke: "rgba(226, 232, 240, 0.75)",
+                },
+                new go.Binding("text", "detail")
+              )
+            )
+          )
+        );
+
+        diagram.linkTemplate = $(
+          go.Link,
+          {
+            routing: go.Link.Orthogonal,
+            corner: 8,
+            selectable: false,
+          },
+          $(go.Shape, {
+            stroke: "rgba(148, 163, 184, 0.45)",
+            strokeWidth: 1.4,
+          })
+        );
+
+        const backboneNodes = [
+          { key: "B0", name: "联络开关", detail: "与上级主线相连", status: "normal", backbone: true, order: 0 },
+          { key: "B1", name: "#1 断路器", detail: "进线保护", status: "normal", backbone: true, order: 1 },
+          { key: "B2", name: "环网柜 A", detail: "分段联络", status: "maintenance", backbone: true, order: 2 },
+          { key: "B3", name: "柱上开关", detail: "分支 1", status: "normal", backbone: true, order: 3 },
+          { key: "B4", name: "环网柜 B", detail: "联络出线", status: "warning", backbone: true, order: 4 },
+          { key: "B5", name: "分段开关", detail: "终端分段", status: "normal", backbone: true, order: 5 },
+          { key: "B6", name: "末端联络", detail: "与备用线联络", status: "normal", backbone: true, order: 6 },
+        ];
+
+        const branchData = [
+          { key: "T0", parent: "B1", side: "top", name: "城北联络", detail: "10kV 互联", status: "normal" },
+          { key: "T0-1", parent: "T0", side: "top", name: "联络负荷", detail: "800kW", status: "normal" },
+          { key: "T1", parent: "B2", side: "top", name: "环网联络", detail: "互供开关", status: "maintenance" },
+          { key: "T1-1", parent: "T1", side: "top", name: "备用馈线", detail: "备用电源", status: "normal" },
+          { key: "T2", parent: "B4", side: "top", name: "工业园联络", detail: "与变电站 B", status: "warning" },
+          { key: "T2-1", parent: "T2", side: "top", name: "重点监测", detail: "压缩机站", status: "warning" },
+          { key: "T2-2", parent: "T2", side: "top", name: "远供线路", detail: "35kV 接入", status: "normal" },
+
+          { key: "D0", parent: "B1", side: "bottom", name: "台区 1", detail: "480 户", status: "normal" },
+          { key: "D0-1", parent: "D0", side: "bottom", name: "配变 1", detail: "630kVA", status: "normal" },
+          { key: "D0-2", parent: "D0", side: "bottom", name: "台区支线", detail: "两回支线", status: "normal" },
+
+          { key: "D1", parent: "B2", side: "bottom", name: "商业台区", detail: "负荷 1.2MW", status: "warning" },
+          { key: "D1-1", parent: "D1", side: "bottom", name: "配变 2", detail: "800kVA", status: "warning" },
+          { key: "D1-2", parent: "D1", side: "bottom", name: "重要用户", detail: "冷链仓储", status: "warning" },
+
+          { key: "D2", parent: "B3", side: "bottom", name: "农村台区", detail: "370 户", status: "normal" },
+          { key: "D2-1", parent: "D2", side: "bottom", name: "分支 A", detail: "泵站", status: "maintenance" },
+          { key: "D2-2", parent: "D2", side: "bottom", name: "分支 B", detail: "农业灌溉", status: "normal" },
+
+          { key: "D3", parent: "B4", side: "bottom", name: "工业台区", detail: "2.5MW", status: "warning" },
+          { key: "D3-1", parent: "D3", side: "bottom", name: "配变 3", detail: "1250kVA", status: "warning" },
+          { key: "D3-2", parent: "D3", side: "bottom", name: "分支车间", detail: "三条支路", status: "normal" },
+
+          { key: "D4", parent: "B5", side: "bottom", name: "学校台区", detail: "教学楼供电", status: "normal" },
+          { key: "D4-1", parent: "D4", side: "bottom", name: "教学配变", detail: "630kVA", status: "normal" },
+          { key: "D4-2", parent: "D4", side: "bottom", name: "宿舍支线", detail: "3 栋宿舍", status: "normal" },
+
+          { key: "D5", parent: "B6", side: "bottom", name: "终端台区", detail: "末端 280 户", status: "normal" },
+          { key: "D5-1", parent: "D5", side: "bottom", name: "终端配变", detail: "500kVA", status: "normal" },
+          { key: "D5-2", parent: "D5", side: "bottom", name: "应急电源", detail: "柴油发电", status: "normal" },
+        ];
+
+        const nodeDataArray = backboneNodes.concat(branchData);
+
+        diagram.model = new go.TreeModel(nodeDataArray);
+
+        const stats = document.getElementById("stats");
+        if (stats) {
+          const totalNodes = diagram.model.nodeDataArray.length;
+          const totalLinks = totalNodes - 1;
+          stats.textContent = `节点数：${totalNodes} · 连接数：${totalLinks}`;
+        }
+      });
+    </script>
+  </body>
+</html>
