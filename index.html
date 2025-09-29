@@ -3,7 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>GoJS 布局示例画廊</title>
+    <title>配电网双向树形布局示意图 - GoJS</title>
+    <script src="https://unpkg.com/gojs/release/go.js"></script>
     <style>
       :root {
         color-scheme: light;
@@ -15,356 +16,783 @@
 
       body {
         margin: 0;
-        font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
-        color: #1f2933;
-        background: linear-gradient(
-          160deg,
-          #f8fafc 0%,
-          #f1f5f9 40%,
-          #e2e8f0 100%
-        );
-        min-height: 100vh;
+        font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+        background: #f3f4f6;
+        color: #0f172a;
       }
 
       header {
-        background: rgba(15, 23, 42, 0.9);
+        padding: 24px 32px 12px;
+        background: linear-gradient(135deg, #0f172a 0%, #1d4ed8 100%);
         color: #f8fafc;
-        padding: 32px 16px;
-        box-shadow: 0 8px 32px rgba(15, 23, 42, 0.18);
-      }
-
-      header .inner {
-        max-width: 1040px;
-        margin: 0 auto;
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
+        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.3);
       }
 
       header h1 {
-        margin: 0;
-        font-size: clamp(28px, 4vw, 40px);
-        letter-spacing: 0.03em;
+        margin: 0 0 6px;
+        font-size: clamp(26px, 3vw, 36px);
+        letter-spacing: 0.04em;
       }
 
       header p {
         margin: 0;
+        opacity: 0.86;
         max-width: 680px;
         line-height: 1.6;
-        color: rgba(248, 250, 252, 0.85);
       }
 
       main {
-        max-width: 1040px;
-        margin: 0 auto;
-        padding: 40px 16px 64px;
-      }
-
-      .layout-grid {
+        padding: 24px 32px 48px;
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-        gap: 24px;
+        gap: 16px;
       }
 
-      .card {
+      .controls {
         display: flex;
-        flex-direction: column;
         gap: 12px;
-        padding: 24px;
-        border-radius: 16px;
-        background: rgba(255, 255, 255, 0.82);
-        backdrop-filter: blur(8px);
-        text-decoration: none;
-        color: inherit;
-        box-shadow: 0 12px 32px rgba(15, 23, 42, 0.12);
-        transition: transform 0.25s ease, box-shadow 0.25s ease;
-        border: 1px solid rgba(15, 23, 42, 0.08);
-      }
-
-      .card:hover,
-      .card:focus-visible {
-        transform: translateY(-6px);
-        box-shadow: 0 18px 38px rgba(15, 23, 42, 0.16);
-        outline: none;
-      }
-
-      .card h2 {
-        margin: 0;
-        font-size: 20px;
-        color: #0f172a;
-      }
-
-      .badge {
-        display: inline-flex;
         align-items: center;
-        gap: 6px;
-        font-size: 12px;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
-        color: #1d4ed8;
-        background-color: rgba(59, 130, 246, 0.12);
-        padding: 6px 10px;
+        flex-wrap: wrap;
+      }
+
+      button {
+        appearance: none;
+        border: none;
+        padding: 10px 18px;
         border-radius: 999px;
+        background: #2563eb;
+        color: #f8fafc;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        cursor: pointer;
+        box-shadow: 0 8px 20px rgba(37, 99, 235, 0.35);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
       }
 
-      .card p {
+      button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 24px rgba(37, 99, 235, 0.4);
+      }
+
+      #diagramContainer {
+        position: relative;
+        border-radius: 18px;
+        overflow: hidden;
+        min-height: 620px;
+        background: #fff;
+        box-shadow: 0 18px 42px rgba(15, 23, 42, 0.16);
+      }
+
+      #myDiagramDiv {
+        width: 100%;
+        height: 100%;
+      }
+
+      .legend {
+        position: absolute;
+        top: 16px;
+        left: 16px;
+        background: rgba(15, 23, 42, 0.88);
+        color: #f8fafc;
+        border-radius: 12px;
+        padding: 16px;
+        font-size: 13px;
+        min-width: 180px;
+        box-shadow: 0 12px 28px rgba(15, 23, 42, 0.3);
+        backdrop-filter: blur(6px);
+      }
+
+      .legend h3 {
+        margin: 0 0 8px;
+        font-size: 14px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        opacity: 0.85;
+      }
+
+      .legend ul {
+        list-style: none;
         margin: 0;
-        line-height: 1.6;
-        color: #52606d;
+        padding: 0;
+        display: grid;
+        gap: 8px;
       }
 
-      .card span {
-        margin-top: auto;
+      .legend li {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .legend .badge {
+        width: 18px;
+        height: 18px;
+        border-radius: 6px;
         display: inline-flex;
         align-items: center;
-        gap: 8px;
-        font-weight: 600;
-        color: #2563eb;
-      }
-
-      .card span::after {
-        content: "→";
-        font-size: 18px;
-        transition: transform 0.2s ease;
-      }
-
-      .card:hover span::after {
-        transform: translateX(4px);
+        justify-content: center;
+        font-size: 11px;
+        font-weight: 700;
       }
 
       footer {
-        text-align: center;
-        padding: 32px 16px 56px;
+        padding: 0 32px 32px;
         color: #475569;
-        font-size: 14px;
-      }
-
-      footer a {
-        color: inherit;
-      }
-
-      .layout-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-        gap: 24px;
-      }
-
-      .card {
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-        padding: 24px;
-        border-radius: 16px;
-        background: rgba(255, 255, 255, 0.82);
-        backdrop-filter: blur(8px);
-        text-decoration: none;
-        color: inherit;
-        box-shadow: 0 12px 32px rgba(15, 23, 42, 0.12);
-        transition: transform 0.25s ease, box-shadow 0.25s ease;
-        border: 1px solid rgba(15, 23, 42, 0.08);
-      }
-
-      .card:hover,
-      .card:focus-visible {
-        transform: translateY(-6px);
-        box-shadow: 0 18px 38px rgba(15, 23, 42, 0.16);
-        outline: none;
-      }
-
-      .card h2 {
-        margin: 0;
-        font-size: 20px;
-        color: #0f172a;
-      }
-
-      .badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        font-size: 12px;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
-        color: #1d4ed8;
-        background-color: rgba(59, 130, 246, 0.12);
-        padding: 6px 10px;
-        border-radius: 999px;
-      }
-
-      .card p {
-        margin: 0;
-        line-height: 1.6;
-        color: #52606d;
-      }
-
-      .card span {
-        margin-top: auto;
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        font-weight: 600;
-        color: #2563eb;
-      }
-
-      .card span::after {
-        content: "→";
-        font-size: 18px;
-        transition: transform 0.2s ease;
-      }
-
-      .card:hover span::after {
-        transform: translateX(4px);
-      }
-
-      footer {
-        text-align: center;
-        padding: 32px 16px 56px;
-        color: #475569;
-        font-size: 14px;
-      }
-
-      footer a {
-        color: inherit;
+        font-size: 13px;
       }
     </style>
   </head>
   <body>
     <header>
-      <div class="inner">
-        <h1>GoJS 布局示例画廊</h1>
-        <p>
-          这里汇集了 GoJS 内建布局与常用扩展布局，共 13 个案例，每个示例都使用约
-          50 个节点，方便快速对比不同算法在复杂网络下的呈现效果。
-          点击任意卡片即可打开互动页面，查看节点连线细节。
-        </p>
-      </div>
+      <h1>双向树形配电网示意图</h1>
+      <p>
+        以主变电站为根节点，将向上线路与向下配电网络拆分为两棵树，并通过自定义
+        Double Tree 布局保持主干垂直对齐。悬停查看节点角色提示，点击开关即可切换闭锁状态。
+      </p>
     </header>
     <main>
-      <div class="layout-grid">
-        <a class="card" href="layouts/force-directed.html">
-          <span class="badge">GoJS 布局</span>
-          <h2>ForceDirectedLayout</h2>
-          <p>
-            使用物理仿真算法让节点在弹簧和电荷作用下自动分布，适合探索无向网络关系，展示稠密连接的自然形态。
-          </p>
-          <span>查看示例</span>
-        </a>
-        <a class="card" href="layouts/distribution-network.html">
-          <span class="badge">行业场景</span>
-          <h2>配电网监控示例</h2>
-          <p>
-            以 110kV 变电站为核心展示三条馈线与联络开关，并可交互模拟停电与负荷均衡，结合状态监测与统计面板体验运行管控流程。
-          </p>
-          <span>查看示例</span>
-        </a>
-        <a class="card" href="layouts/backbone-feeder.html">
-          <span class="badge">行业场景</span>
-          <h2>馈线主干布局</h2>
-          <p>
-            展示中压馈线的“中间主干 + 上下分支”结构，沿主线顺序排列开关与环网柜，同时在上下两侧布置联络与台区负荷。
-          </p>
-          <span>查看示例</span>
-        </a>
-        <a class="card" href="layouts/circular.html">
-          <span class="badge">GoJS 布局</span>
-          <h2>CircularLayout</h2>
-          <p>
-            将节点环形排列并添加跨圈连线，突出环状拓扑与社群划分，适合展示循环依赖或分组结构。
-          </p>
-          <span>查看示例</span>
-        </a>
-        <a class="card" href="layouts/layered-digraph.html">
-          <span class="badge">GoJS 布局</span>
-          <h2>LayeredDigraphLayout</h2>
-          <p>
-            对有向图进行分层排布，强调信息从左至右的传递，演示多层流程或数据通道。
-          </p>
-          <span>查看示例</span>
-        </a>
-        <a class="card" href="layouts/tree.html">
-          <span class="badge">GoJS 布局</span>
-          <h2>TreeLayout</h2>
-          <p>
-            多叉树结构自上而下展开，呈现 50
-            个节点的层级组织，适合可视化企业结构或配电网络。
-          </p>
-          <span>查看示例</span>
-        </a>
-        <a class="card" href="layouts/grid.html">
-          <span class="badge">GoJS 布局</span>
-          <h2>GridLayout</h2>
-          <p>
-            节点按网格对齐，配合邻接连线展示矩阵型网络，便于观察规则拓扑的关联关系。
-          </p>
-          <span>查看示例</span>
-        </a>
-        <a class="card" href="layouts/radial.html">
-          <span class="badge">GoJS 布局</span>
-          <h2>RadialLayout</h2>
-          <p>
-            围绕核心节点绘制同心层，快速展示知识地图或组织辐射网络的多级扩散关系。
-          </p>
-          <span>查看示例</span>
-        </a>
-        <a class="card" href="layouts/spiral.html">
-          <span class="badge">GoJS 布局</span>
-          <h2>SpiralLayout</h2>
-          <p>
-            将节点沿螺旋链路排列，并加入跨臂连线，强调任务推进节奏与阶段间的交互引用。
-          </p>
-          <span>查看示例</span>
-        </a>
-        <a class="card" href="layouts/double-tree.html">
-          <span class="badge">GoJS 布局</span>
-          <h2>DoubleTreeLayout</h2>
-          <p>
-            通过中心节点向左右扩散生成对称心智图，一侧聚焦策略，一侧关注落地执行细节。
-          </p>
-          <span>查看示例</span>
-        </a>
-        <a class="card" href="layouts/serpentine.html">
-          <span class="badge">GoJS 布局</span>
-          <h2>SerpentineLayout</h2>
-          <p>
-            以蛇形路径串联 50
-            个阶段节点，自动换行展示长链路的推进节奏，并以虚线标注跨阶段依赖。
-          </p>
-          <span>查看示例</span>
-        </a>
-        <a class="card" href="layouts/parallel.html">
-          <span class="badge">GoJS 布局</span>
-          <h2>ParallelLayout</h2>
-          <p>
-            以单一分流节点派生四条并行流程，观察 50
-            个任务的左右支路及其关键同步点如何在合流处收敛。
-          </p>
-          <span>查看示例</span>
-        </a>
-        <a class="card" href="layouts/packed.html">
-          <span class="badge">GoJS 布局</span>
-          <h2>PackedLayout</h2>
-          <p>
-            将 50
-            个节点紧凑装填进椭圆边界，节点面积代表活跃度，辅以跨集群连线展示协同关系。
-          </p>
-          <span>查看示例</span>
-        </a>
-        <a class="card" href="layouts/fishbone.html">
-          <span class="badge">GoJS 布局</span>
-          <h2>FishboneLayout</h2>
-          <p>
-            采用鱼骨图形式梳理 50
-            个根因要素，从主干问题向左右分支发散，突出原因归类。
-          </p>
-          <span>查看示例</span>
-        </a>
+      <div class="controls">
+        <button id="fitButton" type="button">适配视图</button>
       </div>
+      <section id="diagramContainer">
+        <div class="legend">
+          <h3>图例 Legend</h3>
+          <ul>
+            <li><span class="badge" style="background:#f97316"></span>主/分支变电站</li>
+            <li><span class="badge" style="background:#38bdf8"></span>主干线路节点</li>
+            <li><span class="badge" style="background:#22c55e"></span>配电房 / 环网柜</li>
+            <li><span class="badge" style="background:#facc15"></span>末端用户 / 台区</li>
+            <li><span class="badge" style="background:#c084fc"></span>联络 / 分段开关</li>
+          </ul>
+        </div>
+        <div id="myDiagramDiv"></div>
+      </section>
     </main>
-    <footer>
-      基于
-      <a href="https://gojs.net" target="_blank" rel="noreferrer">GoJS</a>
-      最新版本构建
-    </footer>
+    <footer>使用 GoJS 构建 © 2024</footer>
+
+    <script>
+      (function () {
+        const $ = go.GraphObject.make;
+
+        const diagram = $(go.Diagram, "myDiagramDiv", {
+          padding: 60,
+          contentAlignment: go.Spot.Center,
+          "undoManager.isEnabled": true,
+          autoScale: go.Diagram.Uniform,
+          layout: $(go.Layout),
+          initialDocumentSpot: go.Spot.Center,
+          initialViewportSpot: go.Spot.Center,
+        });
+
+        const sharedToolTip = $(
+          "ToolTip",
+          $(
+            go.TextBlock,
+            {
+              margin: 6,
+              stroke: "#e2e8f0",
+              font: "12px 'Segoe UI'",
+              wrap: go.TextBlock.WrapFit,
+              width: 180,
+            },
+            new go.Binding("text", "tooltip")
+          )
+        );
+
+        function nodeStyle() {
+          return {
+            locationSpot: go.Spot.Center,
+            toolTip: sharedToolTip,
+            selectionAdornmentTemplate: $(
+              go.Adornment,
+              "Auto",
+              $(go.Shape, "RoundedRectangle", {
+                fill: "rgba(59,130,246,0.2)",
+                stroke: "#2563eb",
+                strokeWidth: 2,
+                parameter1: 8,
+              }),
+              $(go.Placeholder)
+            ),
+          };
+        }
+
+        diagram.nodeTemplateMap.add(
+          "substation",
+          $(
+            go.Node,
+            "Auto",
+            nodeStyle(),
+            $(
+              go.Shape,
+              "RoundedRectangle",
+              {
+                fill: "#f97316",
+                stroke: "#c2410c",
+                strokeWidth: 2,
+                parameter1: 12,
+                spot1: go.Spot.TopLeft,
+                spot2: go.Spot.BottomRight,
+              }
+            ),
+            $(
+              go.Panel,
+              "Vertical",
+              { margin: 10, alignment: go.Spot.Center },
+              $(
+                go.Shape,
+                "Hexagon",
+                {
+                  desiredSize: new go.Size(30, 30),
+                  fill: "rgba(255,255,255,0.85)",
+                  stroke: "#b45309",
+                  strokeWidth: 1.5,
+                }
+              ),
+              $(
+                go.TextBlock,
+                {
+                  margin: new go.Margin(6, 6, 2, 6),
+                  font: "bold 12px 'Segoe UI'",
+                  stroke: "#fff7ed",
+                  textAlign: "center",
+                  wrap: go.TextBlock.WrapFit,
+                  width: 120,
+                },
+                new go.Binding("text", "name")
+              ),
+              $(
+                go.TextBlock,
+                {
+                  font: "10px 'Segoe UI'",
+                  stroke: "rgba(255,255,255,0.85)",
+                  textAlign: "center",
+                  wrap: go.TextBlock.WrapFit,
+                  width: 120,
+                },
+                new go.Binding("text", "subtype")
+              )
+            )
+          )
+        );
+
+        diagram.nodeTemplateMap.add(
+          "lineNode",
+          $(
+            go.Node,
+            "Auto",
+            nodeStyle(),
+            $(
+              go.Shape,
+              "RoundedRectangle",
+              {
+                fill: "#38bdf8",
+                stroke: "#0284c7",
+                strokeWidth: 2,
+                parameter1: 12,
+              }
+            ),
+            $(
+              go.Panel,
+              "Horizontal",
+              { margin: 10, alignment: go.Spot.Center, gap: 10 },
+              $(
+                go.Shape,
+                "Circle",
+                {
+                  desiredSize: new go.Size(18, 18),
+                  fill: "rgba(255,255,255,0.9)",
+                  stroke: "#0ea5e9",
+                  strokeWidth: 1.5,
+                }
+              ),
+              $(
+                go.TextBlock,
+                {
+                  font: "bold 12px 'Segoe UI'",
+                  stroke: "#0f172a",
+                  textAlign: "center",
+                },
+                new go.Binding("text", "name")
+              )
+            )
+          )
+        );
+
+        diagram.nodeTemplateMap.add(
+          "distRoom",
+          $(
+            go.Node,
+            "Auto",
+            nodeStyle(),
+            $(
+              go.Shape,
+              "RoundedRectangle",
+              {
+                fill: "#22c55e",
+                stroke: "#15803d",
+                strokeWidth: 2,
+                parameter1: 10,
+              }
+            ),
+            $(
+              go.Panel,
+              "Vertical",
+              { margin: 8, alignment: go.Spot.Center, gap: 4 },
+              $(
+                go.Shape,
+                "Barrel",
+                {
+                  desiredSize: new go.Size(24, 24),
+                  fill: "rgba(255,255,255,0.85)",
+                  stroke: "#16a34a",
+                  strokeWidth: 1.5,
+                }
+              ),
+              $(
+                go.TextBlock,
+                {
+                  font: "bold 12px 'Segoe UI'",
+                  stroke: "#ecfdf5",
+                  textAlign: "center",
+                  wrap: go.TextBlock.WrapFit,
+                  width: 100,
+                },
+                new go.Binding("text", "name")
+              )
+            )
+          )
+        );
+
+        diagram.nodeTemplateMap.add(
+          "user",
+          $(
+            go.Node,
+            "Spot",
+            nodeStyle(),
+            $(
+              go.Panel,
+              "Auto",
+              $(
+                go.Shape,
+                "Circle",
+                {
+                  fill: "#facc15",
+                  stroke: "#ca8a04",
+                  strokeWidth: 2,
+                }
+              ),
+              $(
+                go.TextBlock,
+                {
+                  font: "bold 11px 'Segoe UI'",
+                  stroke: "#713f12",
+                  margin: 8,
+                  wrap: go.TextBlock.WrapFit,
+                  width: 80,
+                  textAlign: "center",
+                },
+                new go.Binding("text", "name")
+              )
+            )
+          )
+        );
+
+        diagram.nodeTemplateMap.add(
+          "switch",
+          $(
+            go.Node,
+            "Auto",
+            nodeStyle(),
+            {
+              cursor: "pointer",
+              click: (e, node) => toggleSwitch(node),
+            },
+            $(
+              go.Shape,
+              "RoundedRectangle",
+              {
+                fill: "#c084fc",
+                stroke: "#7c3aed",
+                strokeWidth: 2,
+                parameter1: 12,
+              }
+            ),
+            $(
+              go.Panel,
+              "Vertical",
+              { margin: 8, alignment: go.Spot.Center, gap: 6 },
+              $(
+                go.Panel,
+                "Position",
+                { desiredSize: new go.Size(28, 28) },
+                $(go.Shape, "MinusLine", {
+                  stroke: "#581c87",
+                  strokeWidth: 3,
+                  desiredSize: new go.Size(22, 22),
+                  alignment: go.Spot.Center,
+                }),
+                $(
+                  go.Shape,
+                  "Circle",
+                  {
+                    desiredSize: new go.Size(10, 10),
+                    fill: "#f5f3ff",
+                    stroke: "#581c87",
+                    strokeWidth: 1.5,
+                    alignment: new go.Spot(0.3, 0.3),
+                  },
+                  new go.Binding("alignment", "closed", (closed) =>
+                    closed ? new go.Spot(0.7, 0.7) : new go.Spot(0.3, 0.3)
+                  )
+                )
+              ),
+              $(
+                go.TextBlock,
+                {
+                  font: "bold 11px 'Segoe UI'",
+                  stroke: "#fff",
+                  textAlign: "center",
+                  wrap: go.TextBlock.WrapFit,
+                  width: 100,
+                },
+                new go.Binding("text", "name")
+              ),
+              $(
+                go.TextBlock,
+                {
+                  font: "10px 'Segoe UI'",
+                  stroke: "rgba(255,255,255,0.85)",
+                  textAlign: "center",
+                  wrap: go.TextBlock.WrapFit,
+                  width: 100,
+                },
+                new go.Binding("text", "", (data) =>
+                  data.closed ? "状态：闭合" : "状态：分闸"
+                )
+              )
+            )
+          )
+        );
+
+        function toggleSwitch(node) {
+          const data = node.data;
+          if (!data) return;
+          diagram.commit((m) => {
+            m.set(data, "closed", !data.closed);
+          }, "toggle switch");
+          node.findLinksConnected().each((link) => {
+            link.updateTargetBindings();
+          });
+        }
+
+        diagram.linkTemplate = $(
+          go.Link,
+          {
+            routing: go.Link.AvoidsNodes,
+            curve: go.Link.None,
+            corner: 12,
+            toShortLength: 4,
+            layerName: "Background",
+            toolTip: $(
+              "ToolTip",
+              $(
+                go.TextBlock,
+                {
+                  margin: 6,
+                  stroke: "#e2e8f0",
+                  font: "12px 'Segoe UI'",
+                },
+                new go.Binding("text", "", (data) =>
+                  data.branch === "up" ? "上行线路" : "下行馈线"
+                )
+              )
+            ),
+          },
+          new go.Binding("stroke", "", (data, obj) => {
+            const link = obj.part;
+            const relatedSwitch = findConnectedSwitch(link);
+            if (relatedSwitch && !relatedSwitch.data.closed) {
+              return "#f97316";
+            }
+            return data.branch === "up" ? "#0ea5e9" : "#10b981";
+          }).ofObject(),
+          new go.Binding("strokeDashArray", "", (data, obj) => {
+            const link = obj.part;
+            const relatedSwitch = findConnectedSwitch(link);
+            if (relatedSwitch && !relatedSwitch.data.closed) {
+              return [6, 4];
+            }
+            return null;
+          }).ofObject(),
+          new go.Binding("strokeWidth", "", (data, obj) => {
+            const link = obj.part;
+            const relatedSwitch = findConnectedSwitch(link);
+            return relatedSwitch && !relatedSwitch.data.closed ? 2.5 : 2;
+          }).ofObject(),
+          $(go.Shape)
+        );
+
+        function findConnectedSwitch(link) {
+          const fromNode = link.fromNode;
+          const toNode = link.toNode;
+          if (fromNode && fromNode.data.category === "switch") return fromNode;
+          if (toNode && toNode.data.category === "switch") return toNode;
+          return null;
+        }
+
+        diagram.model = new go.GraphLinksModel({
+          nodeDataArray: [
+            {
+              key: 1,
+              category: "substation",
+              name: "主变电站 #1",
+              subtype: "110kV / 主干供电",
+              isSpine: true,
+              tooltip: "中心枢纽站，承担 110/35kV 主变任务",
+            },
+            {
+              key: 2,
+              category: "lineNode",
+              name: "U1",
+              subtype: "主干线路",
+              isSpine: true,
+              tooltip: "上行主干节点 U1，出口电压 35kV",
+              branch: "up",
+            },
+            {
+              key: 3,
+              category: "lineNode",
+              name: "U2",
+              subtype: "主干线路",
+              isSpine: true,
+              tooltip: "上行主干节点 U2，杆塔联络点",
+              branch: "up",
+            },
+            {
+              key: 4,
+              category: "lineNode",
+              name: "U3",
+              subtype: "主干线路",
+              isSpine: true,
+              tooltip: "上行线路终端段",
+              branch: "up",
+            },
+            {
+              key: 5,
+              category: "lineNode",
+              name: "U4",
+              subtype: "主干线路",
+              isSpine: true,
+              tooltip: "靠近山区的分支点",
+              branch: "up",
+            },
+            {
+              key: 6,
+              category: "substation",
+              name: "分支变电所 SS-A",
+              subtype: "35/10kV 变电",
+              tooltip: "SS-A：向工业园供电",
+              branch: "up",
+            },
+            {
+              key: 7,
+              category: "substation",
+              name: "分支变电所 SS-B",
+              subtype: "35/10kV 变电",
+              tooltip: "SS-B：山区泵站用电",
+              branch: "up",
+            },
+            {
+              key: 8,
+              category: "substation",
+              name: "分支变电所 SS-C",
+              subtype: "35/10kV 变电",
+              tooltip: "SS-C：城西生活区",
+              branch: "up",
+            },
+            {
+              key: 9,
+              category: "switch",
+              name: "联络开关 S1",
+              subtype: "常开联络",
+              tooltip: "常开联络开关，用于环网倒送",
+              closed: false,
+              branch: "up",
+            },
+            {
+              key: 20,
+              category: "lineNode",
+              name: "D1",
+              subtype: "主干线路",
+              isSpine: true,
+              tooltip: "下行主干节点 D1，馈线出口",
+              branch: "down",
+            },
+            {
+              key: 21,
+              category: "lineNode",
+              name: "D2",
+              subtype: "主干线路",
+              isSpine: true,
+              tooltip: "下行主干节点 D2，环网柜入口",
+              branch: "down",
+            },
+            {
+              key: 22,
+              category: "lineNode",
+              name: "D3",
+              subtype: "主干线路",
+              isSpine: true,
+              tooltip: "D3：配电房联络点",
+              branch: "down",
+            },
+            {
+              key: 23,
+              category: "lineNode",
+              name: "D4",
+              subtype: "主干线路",
+              isSpine: true,
+              tooltip: "D4：末端杆塔",
+              branch: "down",
+            },
+            {
+              key: 24,
+              category: "distRoom",
+              name: "配电房 PD-1",
+              subtype: "10/0.4kV 环网柜",
+              tooltip: "PD-1：商业综合体配电",
+              branch: "down",
+            },
+            {
+              key: 25,
+              category: "distRoom",
+              name: "配电房 PD-2",
+              subtype: "10/0.4kV 箱变",
+              tooltip: "PD-2：居民小区环网柜",
+              branch: "down",
+            },
+            {
+              key: 30,
+              category: "user",
+              name: "用户 A 台区",
+              subtype: "0.4kV",
+              tooltip: "A 台区：高层住宅负荷",
+              branch: "down",
+            },
+            {
+              key: 31,
+              category: "user",
+              name: "用户 B 台区",
+              subtype: "0.4kV",
+              tooltip: "B 台区：商业街用户",
+              branch: "down",
+            },
+            {
+              key: 32,
+              category: "user",
+              name: "用户 C 台区",
+              subtype: "0.4kV",
+              tooltip: "C 台区：学校负荷",
+              branch: "down",
+            },
+            {
+              key: 33,
+              category: "user",
+              name: "用户 D 台区",
+              subtype: "0.4kV",
+              tooltip: "D 台区：城郊居民",
+              branch: "down",
+            }
+          ],
+          linkDataArray: [
+            { from: 1, to: 2, branch: "up" },
+            { from: 2, to: 3, branch: "up" },
+            { from: 3, to: 4, branch: "up" },
+            { from: 4, to: 5, branch: "up" },
+            { from: 5, to: 6, branch: "up" },
+            { from: 5, to: 7, branch: "up" },
+            { from: 4, to: 8, branch: "up" },
+            { from: 3, to: 9, branch: "up" },
+            { from: 9, to: 6, branch: "up" },
+            { from: 1, to: 20, branch: "down" },
+            { from: 20, to: 21, branch: "down" },
+            { from: 21, to: 22, branch: "down" },
+            { from: 22, to: 23, branch: "down" },
+            { from: 22, to: 24, branch: "down" },
+            { from: 23, to: 25, branch: "down" },
+            { from: 24, to: 30, branch: "down" },
+            { from: 24, to: 31, branch: "down" },
+            { from: 25, to: 32, branch: "down" },
+            { from: 25, to: 33, branch: "down" }
+          ],
+        });
+
+        function applyDoubleTreeVerticalLayout(diagram, rootKey) {
+          const root = diagram.findNodeForKey(rootKey);
+          if (!root) return;
+
+          const upParts = new go.Set(go.Part);
+          const downParts = new go.Set(go.Part);
+
+          upParts.add(root);
+          downParts.add(root);
+
+          function traverse(node, branch, set) {
+            if (!node) return;
+            node.findLinksConnected().each((link) => {
+              if (link.data.branch !== branch) return;
+              set.add(link);
+              const next = link.getOtherNode(node);
+              if (!next || set.contains(next)) return;
+              set.add(next);
+              traverse(next, branch, set);
+            });
+          }
+
+          traverse(root, "up", upParts);
+          traverse(root, "down", downParts);
+
+          diagram.startTransaction("DoubleTreeLayout");
+          const upLayout = $(go.TreeLayout, {
+            angle: 270,
+            arrangement: go.TreeLayout.ArrangementFixedRoots,
+            layerSpacing: 80,
+            nodeSpacing: 40,
+            setsPortSpot: false,
+            setsChildPortSpot: false,
+          });
+          const downLayout = $(go.TreeLayout, {
+            angle: 90,
+            arrangement: go.TreeLayout.ArrangementFixedRoots,
+            layerSpacing: 80,
+            nodeSpacing: 40,
+            setsPortSpot: false,
+            setsChildPortSpot: false,
+          });
+
+          upLayout.doLayout(upParts);
+          downLayout.doLayout(downParts);
+
+          const rootX = root.location.x;
+          diagram.nodes.each((node) => {
+            if (node.data && node.data.isSpine) {
+              node.location = new go.Point(rootX, node.location.y);
+            }
+          });
+
+          diagram.commitTransaction("DoubleTreeLayout");
+        }
+
+        diagram.addDiagramListener("InitialLayoutCompleted", () => {
+          applyDoubleTreeVerticalLayout(diagram, 1);
+        });
+
+        applyDoubleTreeVerticalLayout(diagram, 1);
+
+        document.getElementById("fitButton").addEventListener("click", () => {
+          diagram.commandHandler.zoomToFit();
+        });
+      })();
+    </script>
   </body>
 </html>
