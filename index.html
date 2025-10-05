@@ -488,11 +488,14 @@
         diagram.linkTemplate = $(
           go.Link,
           {
-            routing: go.Link.AvoidsNodes,
+            routing: go.Link.Orthogonal,
             curve: go.Link.None,
             corner: 12,
             toShortLength: 4,
             layerName: "Background",
+            adjusting: go.Link.End,
+            fromEndSegmentLength: 30,
+            toEndSegmentLength: 30,
             toolTip: $(
               "ToolTip",
               $(
@@ -508,6 +511,8 @@
               )
             ),
           },
+          new go.Binding("segmentOffset", "segmentOffset"),
+          new go.Binding("curviness", "curviness"),
           new go.Binding("stroke", "", (data, obj) => {
             const link = obj.part;
             const relatedSwitch = findConnectedSwitch(link);
@@ -538,6 +543,45 @@
           if (fromNode && fromNode.data.category === "switch") return fromNode;
           if (toNode && toNode.data.category === "switch") return toNode;
           return null;
+        }
+
+        function applyParallelLinkSpacing(diagram, spacing = 24) {
+          const groups = new Map();
+
+          diagram.links.each((link) => {
+            if (!link.fromNode || !link.toNode) return;
+            const key = `${link.fromNode.data.key}->${link.toNode.data.key}`;
+            if (!groups.has(key)) groups.set(key, []);
+            groups.get(key).push(link);
+          });
+
+          diagram.model.commit((m) => {
+            groups.forEach((links) => {
+              if (links.length <= 1) {
+                const single = links[0];
+                if (!single) return;
+                m.set(single.data, "segmentOffset", new go.Point(0, 0));
+                m.set(single.data, "curviness", 0);
+                return;
+              }
+
+              const mid = (links.length - 1) / 2;
+              links.forEach((link, idx) => {
+                const fromLoc = link.fromNode.location;
+                const toLoc = link.toNode.location;
+                const dx = toLoc.x - fromLoc.x;
+                const dy = toLoc.y - fromLoc.y;
+                const prefersHorizontalOffset = Math.abs(dx) > Math.abs(dy);
+                const offsetValue = (idx - mid) * spacing;
+                const offsetPoint = prefersHorizontalOffset
+                  ? new go.Point(0, offsetValue)
+                  : new go.Point(offsetValue, 0);
+
+                m.set(link.data, "segmentOffset", offsetPoint);
+                m.set(link.data, "curviness", 0);
+              });
+            });
+          }, "apply parallel link spacing");
         }
 
         diagram.model = new go.GraphLinksModel({
@@ -781,6 +825,7 @@
           });
 
           diagram.commitTransaction("DoubleTreeLayout");
+          applyParallelLinkSpacing(diagram);
         }
 
         diagram.addDiagramListener("InitialLayoutCompleted", () => {
@@ -788,6 +833,10 @@
         });
 
         applyDoubleTreeVerticalLayout(diagram, 1);
+
+        diagram.addDiagramListener("LayoutCompleted", () => {
+          applyParallelLinkSpacing(diagram);
+        });
 
         document.getElementById("fitButton").addEventListener("click", () => {
           diagram.commandHandler.zoomToFit();
