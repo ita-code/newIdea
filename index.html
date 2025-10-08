@@ -18,7 +18,12 @@
       body {
         margin: 0;
         font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
-        background: radial-gradient(circle at top, #f1f5f9 0%, #e2e8f0 35%, #cbd5f5 100%);
+        background: radial-gradient(
+          circle at top,
+          #f1f5f9 0%,
+          #e2e8f0 35%,
+          #cbd5f5 100%
+        );
         min-height: 100vh;
         color: #0f172a;
         display: flex;
@@ -26,8 +31,13 @@
       }
 
       header {
-        padding: clamp(20px, 4vw, 36px) clamp(20px, 4vw, 48px) clamp(10px, 2vw, 20px);
-        background: linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(30, 64, 175, 0.9));
+        padding: clamp(20px, 4vw, 36px) clamp(20px, 4vw, 48px)
+          clamp(10px, 2vw, 20px);
+        background: linear-gradient(
+          135deg,
+          rgba(15, 23, 42, 0.9),
+          rgba(30, 64, 175, 0.9)
+        );
         color: #f8fafc;
         box-shadow: 0 16px 40px rgba(15, 23, 42, 0.35);
         position: relative;
@@ -38,8 +48,16 @@
         content: "";
         position: absolute;
         inset: 0;
-        background: radial-gradient(circle at 20% 20%, rgba(59, 130, 246, 0.35), transparent 55%),
-          radial-gradient(circle at 80% 30%, rgba(129, 140, 248, 0.45), transparent 50%);
+        background: radial-gradient(
+            circle at 20% 20%,
+            rgba(59, 130, 246, 0.35),
+            transparent 55%
+          ),
+          radial-gradient(
+            circle at 80% 30%,
+            rgba(129, 140, 248, 0.45),
+            transparent 50%
+          );
         pointer-events: none;
         mix-blend-mode: screen;
       }
@@ -214,7 +232,8 @@
     <header>
       <h1>GoJS 并行线路演示</h1>
       <p>
-        这个示例展示了 <strong>ParallelRouteLink</strong> 扩展在电力/地铁线路图中的应用。
+        这个示例展示了
+        <strong>ParallelRouteLink</strong> 扩展在电力/地铁线路图中的应用。
         通过调节并行间距、颜色与节点位置，帮助你直观预览多回路线路的视觉效果。
       </p>
     </header>
@@ -252,13 +271,23 @@
         </article>
       </section>
       <section id="diagramContainer">
-        <div id="myDiagramDiv" role="presentation" aria-label="GoJS diagram preview"></div>
+        <div
+          id="myDiagramDiv"
+          role="presentation"
+          aria-label="GoJS diagram preview"
+        ></div>
         <aside class="legend">
           <h3>线路分组</h3>
           <ul class="legend-colors">
-            <li><span class="swatch" data-pair="kc"></span>金安 ↔ 彩电（双回路）</li>
-            <li><span class="swatch" data-pair="cg"></span>彩电 ↔ 绿荷（三回路）</li>
-            <li><span class="swatch" data-pair="sf"></span>上闸 ↔ 范家（四回路）</li>
+            <li>
+              <span class="swatch" data-pair="kc"></span>金安 ↔ 彩电（双回路）
+            </li>
+            <li>
+              <span class="swatch" data-pair="cg"></span>彩电 ↔ 绿荷（三回路）
+            </li>
+            <li>
+              <span class="swatch" data-pair="sf"></span>上闸 ↔ 范家（四回路）
+            </li>
             <li><span class="swatch" data-pair="single"></span>普通单线</li>
           </ul>
           <h3 style="margin-top: 18px">操作提示</h3>
@@ -282,7 +311,7 @@
           { key: "上闸站", loc: "600 0" },
           { key: "周西站", loc: "300 200" },
           { key: "绿荷站", loc: "600 200" },
-          { key: "范家站", loc: "900 200" }
+          { key: "范家站", loc: "900 200" },
         ];
 
         const baseLinks = [];
@@ -295,18 +324,33 @@
 
         const singleLinks = [
           { category: "single", from: "金安站", to: "周西站" },
-          { category: "single", from: "周西站", to: "绿荷站" }
+          { category: "single", from: "周西站", to: "绿荷站" },
         ];
 
-        addParallel("金安站", "彩电站", 2, document.getElementById("kcColor").value);
-        addParallel("彩电站", "绿荷站", 3, document.getElementById("cgColor").value);
-        addParallel("上闸站", "范家站", 4, document.getElementById("sfColor").value);
+        addParallel(
+          "金安站",
+          "彩电站",
+          2,
+          document.getElementById("kcColor").value
+        );
+        addParallel(
+          "彩电站",
+          "绿荷站",
+          3,
+          document.getElementById("cgColor").value
+        );
+        addParallel(
+          "上闸站",
+          "范家站",
+          4,
+          document.getElementById("sfColor").value
+        );
 
         const diagram = $(go.Diagram, "myDiagramDiv", {
           "undoManager.isEnabled": true,
           padding: 24,
           contentAlignment: go.Spot.Center,
-          isReadOnly: false
+          isReadOnly: false,
         });
 
         diagram.grid.visible = true;
@@ -323,9 +367,11 @@
             cursor: "grab",
             shadowVisible: true,
             mouseEnter: (e, node) => (node.cursor = "grabbing"),
-            mouseLeave: (e, node) => (node.cursor = "grab")
+            mouseLeave: (e, node) => (node.cursor = "grab"),
           },
-          new go.Binding("location", "loc", go.Point.parse).makeTwoWay(go.Point.stringify),
+          new go.Binding("location", "loc", go.Point.parse).makeTwoWay(
+            go.Point.stringify
+          ),
           $(
             go.Panel,
             "Auto",
@@ -334,13 +380,13 @@
               fill: "white",
               stroke: "#2563eb",
               strokeWidth: 3,
-              desiredSize: new go.Size(68, 68)
+              desiredSize: new go.Size(68, 68),
             }),
             $(
               go.TextBlock,
               {
                 font: "600 14px 'Segoe UI', 'Microsoft YaHei', sans-serif",
-                stroke: "#1e293b"
+                stroke: "#1e293b",
               },
               new go.Binding("text", "key")
             )
@@ -357,9 +403,13 @@
               relinkableFrom: true,
               relinkableTo: true,
               resegmentable: true,
-              adjusting: go.Link.End
+              adjusting: go.Link.End,
             },
-            $(go.Shape, { isPanelMain: true, stroke: "#ef6c00", strokeWidth: 3 })
+            $(go.Shape, {
+              isPanelMain: true,
+              stroke: "#ef6c00",
+              strokeWidth: 3,
+            })
           )
         );
 
@@ -374,7 +424,9 @@
               relinkableTo: true,
               resegmentable: true,
               adjusting: go.Link.End,
-              parallelSpacing: Number(document.getElementById("spacingInput").value)
+              parallelSpacing: Number(
+                document.getElementById("spacingInput").value
+              ),
             },
             $(
               go.Shape,
@@ -384,7 +436,10 @@
           )
         );
 
-        diagram.model = new go.GraphLinksModel(initialNodeData, [...singleLinks, ...baseLinks]);
+        diagram.model = new go.GraphLinksModel(initialNodeData, [
+          ...singleLinks,
+          ...baseLinks,
+        ]);
 
         window.diagram = diagram;
 
@@ -393,12 +448,14 @@
             kc: document.getElementById("kcColor").value,
             cg: document.getElementById("cgColor").value,
             sf: document.getElementById("sfColor").value,
-            single: "#ef6c00"
+            single: "#ef6c00",
           };
-          document.querySelectorAll(".legend-colors span.swatch").forEach((swatch) => {
-            const key = swatch.dataset.pair;
-            swatch.style.background = colors[key] || "#94a3b8";
-          });
+          document
+            .querySelectorAll(".legend-colors span.swatch")
+            .forEach((swatch) => {
+              const key = swatch.dataset.pair;
+              swatch.style.background = colors[key] || "#94a3b8";
+            });
         }
 
         function setParallelColor(pair, color) {
@@ -435,15 +492,21 @@
           applyParallelSpacing(value);
         });
 
-        document.getElementById("kcColor").addEventListener("input", (event) => {
-          setParallelColor(["金安站", "彩电站"], event.target.value);
-        });
-        document.getElementById("cgColor").addEventListener("input", (event) => {
-          setParallelColor(["彩电站", "绿荷站"], event.target.value);
-        });
-        document.getElementById("sfColor").addEventListener("input", (event) => {
-          setParallelColor(["上闸站", "范家站"], event.target.value);
-        });
+        document
+          .getElementById("kcColor")
+          .addEventListener("input", (event) => {
+            setParallelColor(["金安站", "彩电站"], event.target.value);
+          });
+        document
+          .getElementById("cgColor")
+          .addEventListener("input", (event) => {
+            setParallelColor(["彩电站", "绿荷站"], event.target.value);
+          });
+        document
+          .getElementById("sfColor")
+          .addEventListener("input", (event) => {
+            setParallelColor(["上闸站", "范家站"], event.target.value);
+          });
 
         document.getElementById("fitButton").addEventListener("click", () => {
           diagram.commandHandler.zoomToFit();
