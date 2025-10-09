@@ -232,9 +232,8 @@
     <header>
       <h1>GoJS 并行线路演示</h1>
       <p>
-        这个示例展示了
-        <strong>ParallelRouteLink</strong> 扩展在电力/地铁线路图中的应用。
-        通过调节并行间距、颜色与节点位置，帮助你直观预览多回路线路的视觉效果。
+        这个示例展示了如何使用 <strong>ParallelRouteLink</strong>
+        扩展来复刻复杂的站点联络图。拖动节点、调整颜色与并行间距，即可得到与原始线路图类似的视觉布局。
       </p>
     </header>
     <main>
@@ -243,23 +242,23 @@
           <h3>并行间距</h3>
           <div class="slider-group">
             <label for="spacingInput">Parallel spacing</label>
-            <input id="spacingInput" type="range" min="4" max="32" value="10" />
-            <span id="spacingValue" class="slider-value">10px</span>
+            <input id="spacingInput" type="range" min="4" max="32" value="12" />
+            <span id="spacingValue" class="slider-value">12px</span>
           </div>
         </article>
         <article class="control-card">
           <h3>线路配色</h3>
           <div class="color-group">
-            <label for="kcColor">金安 ↔ 彩电</label>
-            <input id="kcColor" type="color" value="#c62828" />
+            <label for="backboneColor">骨干双回路</label>
+            <input id="backboneColor" type="color" value="#c62828" />
           </div>
           <div class="color-group">
-            <label for="cgColor">彩电 ↔ 绿荷</label>
-            <input id="cgColor" type="color" value="#ad1457" />
+            <label for="loopColor">常规线路</label>
+            <input id="loopColor" type="color" value="#2e7d32" />
           </div>
           <div class="color-group">
-            <label for="sfColor">上闸 ↔ 范家</label>
-            <input id="sfColor" type="color" value="#6a1b9a" />
+            <label for="tieColor">联络线</label>
+            <input id="tieColor" type="color" value="#0277bd" />
           </div>
         </article>
         <article class="control-card">
@@ -280,22 +279,17 @@
           <h3>线路分组</h3>
           <ul class="legend-colors">
             <li>
-              <span class="swatch" data-pair="kc"></span>金安 ↔ 彩电（双回路）
+              <span class="swatch" data-pair="backbone"></span>骨干双回路
             </li>
-            <li>
-              <span class="swatch" data-pair="cg"></span>彩电 ↔ 绿荷（三回路）
-            </li>
-            <li>
-              <span class="swatch" data-pair="sf"></span>上闸 ↔ 范家（四回路）
-            </li>
-            <li><span class="swatch" data-pair="single"></span>普通单线</li>
+            <li><span class="swatch" data-pair="loop"></span>常规线路</li>
+            <li><span class="swatch" data-pair="tie"></span>联络线</li>
           </ul>
           <h3 style="margin-top: 18px">操作提示</h3>
           <ul class="legend-tips">
-            <li>拖动任一站点即可调整位置。</li>
-            <li>拖动滑块可调整多回路之间的间距。</li>
-            <li>使用颜色选择器快速预览不同线路配色。</li>
-            <li>点击“重置节点布局”恢复初始状态。</li>
+            <li>拖动站点即可调整网络结构。</li>
+            <li>拖动滑块调整多回路之间的间距。</li>
+            <li>通过颜色选择器切换不同线路配色。</li>
+            <li>点击“重置节点布局”恢复初始位置。</li>
           </ul>
         </aside>
       </section>
@@ -305,46 +299,252 @@
       (() => {
         const $ = go.GraphObject.make;
 
-        const initialNodeData = [
-          { key: "金安站", loc: "0 0" },
-          { key: "彩电站", loc: "300 0" },
-          { key: "上闸站", loc: "600 0" },
-          { key: "周西站", loc: "300 200" },
-          { key: "绿荷站", loc: "600 200" },
-          { key: "范家站", loc: "900 200" },
+        const networkNodes = [
+          { key: "S01", label: "金山站", info: "I₁=0.987 kA", loc: "-420 -140" },
+          { key: "S02", label: "文峰站", info: "I₂=0.921 kA", loc: "-240 -220" },
+          { key: "S03", label: "南华站", info: "I₃=1.003 kA", loc: "-60 -160" },
+          { key: "S04", label: "银川站", info: "I₄=0.876 kA", loc: "120 -120" },
+          { key: "S05", label: "城北站", info: "I₅=0.932 kA", loc: "300 -200" },
+          { key: "S06", label: "北港站", info: "I₆=0.845 kA", loc: "480 -140" },
+          { key: "S07", label: "上塘站", info: "I₇=0.715 kA", loc: "-320 -40" },
+          { key: "S08", label: "高新站", info: "I₈=0.602 kA", loc: "-160 0" },
+          { key: "S09", label: "城西站", info: "I₉=0.741 kA", loc: "20 20" },
+          { key: "S10", label: "南湾站", info: "I₁₀=0.693 kA", loc: "200 -20" },
+          { key: "S11", label: "桂林站", info: "I₁₁=0.652 kA", loc: "360 20" },
+          { key: "S12", label: "金东站", info: "I₁₂=0.601 kA", loc: "520 -20" },
+          { key: "S13", label: "柳南站", info: "I₁₃=0.578 kA", loc: "-260 120" },
+          { key: "S14", label: "竹海站", info: "I₁₄=0.512 kA", loc: "-80 160" },
+          { key: "S15", label: "荷花站", info: "I₁₅=0.498 kA", loc: "120 150" },
+          { key: "S16", label: "青浦站", info: "I₁₆=0.462 kA", loc: "280 140" },
+          { key: "S17", label: "虹桥站", info: "I₁₇=0.425 kA", loc: "460 180" },
+          { key: "S18", label: "海川站", info: "I₁₈=0.398 kA", loc: "620 140" },
+          { key: "S19", label: "湖心站", info: "I₁₉=0.372 kA", loc: "0 260" },
+          { key: "S20", label: "钱塘站", info: "I₂₀=0.355 kA", loc: "180 260" },
+          { key: "S21", label: "新城站", info: "I₂₁=0.341 kA", loc: "340 260" },
+          { key: "S22", label: "太湖站", info: "I₂₂=0.329 kA", loc: "500 260" },
+          { key: "S23", label: "港湾站", info: "I₂₃=0.301 kA", loc: "660 260" },
         ];
 
-        const baseLinks = [];
+        const colorInputs = {
+          backbone: document.getElementById("backboneColor"),
+          loop: document.getElementById("loopColor"),
+          tie: document.getElementById("tieColor"),
+        };
 
-        function addParallel(from, to, count, stroke) {
-          for (let i = 0; i < count; i += 1) {
-            baseLinks.push({ category: "parallel", from, to, stroke });
+        const colors = {
+          backbone: colorInputs.backbone.value,
+          loop: colorInputs.loop.value,
+          tie: colorInputs.tie.value,
+        };
+
+        const connectionConfigs = [
+          {
+            from: "S01",
+            to: "S02",
+            circuits: 2,
+            colorKey: "backbone",
+            label: "L-0/4 1.026",
+            strokeWidth: 3,
+          },
+          {
+            from: "S02",
+            to: "S03",
+            colorKey: "loop",
+            label: "1-1 0.998",
+          },
+          {
+            from: "S03",
+            to: "S04",
+            colorKey: "loop",
+            label: "1-2 0.977",
+          },
+          {
+            from: "S04",
+            to: "S05",
+            circuits: 2,
+            colorKey: "backbone",
+            label: "L-0/5 1.013",
+            strokeWidth: 3,
+          },
+          {
+            from: "S05",
+            to: "S06",
+            colorKey: "loop",
+            label: "1-3 0.968",
+          },
+          {
+            from: "S01",
+            to: "S07",
+            colorKey: "loop",
+            label: "2-1 0.945",
+          },
+          {
+            from: "S07",
+            to: "S08",
+            colorKey: "loop",
+            label: "2-2 0.912",
+          },
+          {
+            from: "S08",
+            to: "S09",
+            colorKey: "loop",
+            label: "2-3 0.887",
+          },
+          {
+            from: "S09",
+            to: "S10",
+            colorKey: "loop",
+            label: "2-4 0.865",
+          },
+          {
+            from: "S10",
+            to: "S11",
+            colorKey: "loop",
+            label: "2-5 0.842",
+          },
+          {
+            from: "S11",
+            to: "S12",
+            colorKey: "loop",
+            label: "2-6 0.823",
+          },
+          {
+            from: "S07",
+            to: "S13",
+            colorKey: "loop",
+            label: "3-1 0.812",
+          },
+          {
+            from: "S13",
+            to: "S14",
+            colorKey: "loop",
+            label: "3-2 0.801",
+          },
+          {
+            from: "S14",
+            to: "S15",
+            colorKey: "loop",
+            label: "3-3 0.792",
+          },
+          {
+            from: "S15",
+            to: "S16",
+            colorKey: "loop",
+            label: "3-4 0.784",
+          },
+          {
+            from: "S16",
+            to: "S17",
+            colorKey: "loop",
+            label: "3-5 0.776",
+          },
+          {
+            from: "S17",
+            to: "S18",
+            colorKey: "loop",
+            label: "3-6 0.769",
+          },
+          {
+            from: "S14",
+            to: "S19",
+            colorKey: "loop",
+            label: "4-1 0.761",
+          },
+          {
+            from: "S19",
+            to: "S20",
+            colorKey: "loop",
+            label: "4-2 0.754",
+          },
+          {
+            from: "S20",
+            to: "S21",
+            colorKey: "loop",
+            label: "4-3 0.748",
+          },
+          {
+            from: "S21",
+            to: "S22",
+            colorKey: "loop",
+            label: "4-4 0.743",
+          },
+          {
+            from: "S22",
+            to: "S23",
+            colorKey: "loop",
+            label: "4-5 0.738",
+          },
+          {
+            from: "S03",
+            to: "S08",
+            colorKey: "tie",
+            label: "联络 0.926",
+            curviness: -30,
+          },
+          {
+            from: "S09",
+            to: "S15",
+            colorKey: "tie",
+            label: "联络 0.901",
+            curviness: -40,
+          },
+          {
+            from: "S16",
+            to: "S21",
+            colorKey: "tie",
+            label: "联络 0.876",
+            curviness: -25,
+          },
+          {
+            from: "S10",
+            to: "S16",
+            colorKey: "tie",
+            label: "联络 0.864",
+            curviness: 36,
+          },
+          {
+            from: "S05",
+            to: "S11",
+            colorKey: "tie",
+            label: "联络 0.853",
+            curviness: -40,
+          },
+          {
+            from: "S12",
+            to: "S18",
+            colorKey: "tie",
+            label: "联络 0.846",
+            curviness: -36,
+          },
+          {
+            from: "S15",
+            to: "S20",
+            colorKey: "tie",
+            label: "联络 0.833",
+            curviness: 28,
+          },
+        ];
+
+        const linkData = [];
+
+        connectionConfigs.forEach((config) => {
+          const circuits = config.circuits ?? 1;
+          const category = circuits > 1 ? "parallel" : "single";
+          const strokeWidth = config.strokeWidth ?? (circuits > 1 ? 3 : 2);
+
+          for (let i = 0; i < circuits; i += 1) {
+            linkData.push({
+              category,
+              from: config.from,
+              to: config.to,
+              stroke: colors[config.colorKey],
+              colorKey: config.colorKey,
+              strokeWidth,
+              curviness: config.curviness,
+              label: i === 0 ? config.label ?? "" : "",
+            });
           }
-        }
-
-        const singleLinks = [
-          { category: "single", from: "金安站", to: "周西站" },
-          { category: "single", from: "周西站", to: "绿荷站" },
-        ];
-
-        addParallel(
-          "金安站",
-          "彩电站",
-          2,
-          document.getElementById("kcColor").value
-        );
-        addParallel(
-          "彩电站",
-          "绿荷站",
-          3,
-          document.getElementById("cgColor").value
-        );
-        addParallel(
-          "上闸站",
-          "范家站",
-          4,
-          document.getElementById("sfColor").value
-        );
+        });
 
         const diagram = $(go.Diagram, "myDiagramDiv", {
           "undoManager.isEnabled": true,
@@ -353,19 +553,15 @@
           isReadOnly: false,
         });
 
-        diagram.grid.visible = true;
-        diagram.toolManager.draggingTool.isGridSnapEnabled = true;
-        diagram.toolManager.draggingTool.gridSnapCellSize = new go.Size(30, 30);
+        diagram.grid.visible = false;
+        diagram.toolManager.draggingTool.isGridSnapEnabled = false;
 
         diagram.nodeTemplate = $(
           go.Node,
           "Spot",
           {
             locationSpot: go.Spot.Center,
-            movable: true,
-            resizable: false,
             cursor: "grab",
-            shadowVisible: true,
             mouseEnter: (e, node) => (node.cursor = "grabbing"),
             mouseLeave: (e, node) => (node.cursor = "grab"),
           },
@@ -373,22 +569,42 @@
             go.Point.stringify
           ),
           $(
+            go.Shape,
+            "Circle",
+            {
+              fill: "#ffffff",
+              stroke: "#0f766e",
+              strokeWidth: 2,
+              desiredSize: new go.Size(24, 24),
+              name: "NODE_CIRCLE",
+            }
+          ),
+          $(
             go.Panel,
-            "Auto",
-            { name: "PANEL", portId: "" },
-            $(go.Shape, "Circle", {
-              fill: "white",
-              stroke: "#2563eb",
-              strokeWidth: 3,
-              desiredSize: new go.Size(68, 68),
-            }),
+            "Vertical",
+            {
+              alignment: new go.Spot(0.5, 1, 0, 26),
+              alignmentFocus: go.Spot.Top,
+            },
             $(
               go.TextBlock,
               {
-                font: "600 14px 'Segoe UI', 'Microsoft YaHei', sans-serif",
-                stroke: "#1e293b",
+                font: "600 13px 'Segoe UI', 'Microsoft YaHei', sans-serif",
+                stroke: "#0f172a",
+                margin: new go.Margin(2, 4, 0, 4),
               },
-              new go.Binding("text", "key")
+              new go.Binding("text", "label")
+            ),
+            $(
+              go.TextBlock,
+              {
+                font: "500 11px 'JetBrains Mono', 'Fira Code', monospace",
+                stroke: "#475569",
+                background: "rgba(255,255,255,0.9)",
+                margin: new go.Margin(2, 4, 4, 4),
+              },
+              new go.Binding("text", "info"),
+              new go.Binding("visible", "info", (info) => Boolean(info))
             )
           )
         );
@@ -405,11 +621,28 @@
               resegmentable: true,
               adjusting: go.Link.End,
             },
-            $(go.Shape, {
-              isPanelMain: true,
-              stroke: "#ef6c00",
-              strokeWidth: 3,
-            })
+            $(
+              go.Shape,
+              {
+                isPanelMain: true,
+              },
+              new go.Binding("stroke", "stroke"),
+              new go.Binding("strokeWidth", "strokeWidth"),
+              new go.Binding("curviness", "curviness")
+            ),
+            $(
+              go.TextBlock,
+              {
+                segmentFraction: 0.5,
+                segmentOffset: new go.Point(0, -12),
+                font: "500 11px 'JetBrains Mono', 'Fira Code', monospace",
+                stroke: "#0f172a",
+                background: "rgba(255,255,255,0.85)",
+                margin: new go.Margin(2, 4, 2, 4),
+              },
+              new go.Binding("text", "label"),
+              new go.Binding("visible", "label", (label) => Boolean(label))
+            )
           )
         );
 
@@ -430,26 +663,32 @@
             },
             $(
               go.Shape,
-              { isPanelMain: true, strokeWidth: 3 },
-              new go.Binding("stroke", "stroke")
+              { isPanelMain: true },
+              new go.Binding("stroke", "stroke"),
+              new go.Binding("strokeWidth", "strokeWidth"),
+              new go.Binding("curviness", "curviness")
+            ),
+            $(
+              go.TextBlock,
+              {
+                segmentFraction: 0.5,
+                segmentOffset: new go.Point(0, -14),
+                font: "500 11px 'JetBrains Mono', 'Fira Code', monospace",
+                stroke: "#0f172a",
+                background: "rgba(255,255,255,0.85)",
+                margin: new go.Margin(2, 4, 2, 4),
+              },
+              new go.Binding("text", "label"),
+              new go.Binding("visible", "label", (label) => Boolean(label))
             )
           )
         );
 
-        diagram.model = new go.GraphLinksModel(initialNodeData, [
-          ...singleLinks,
-          ...baseLinks,
-        ]);
+        diagram.model = new go.GraphLinksModel(networkNodes, linkData);
 
         window.diagram = diagram;
 
         function updateLegendSwatches() {
-          const colors = {
-            kc: document.getElementById("kcColor").value,
-            cg: document.getElementById("cgColor").value,
-            sf: document.getElementById("sfColor").value,
-            single: "#ef6c00",
-          };
           document
             .querySelectorAll(".legend-colors span.swatch")
             .forEach((swatch) => {
@@ -458,18 +697,15 @@
             });
         }
 
-        function setParallelColor(pair, color) {
+        function setGroupColor(groupKey, color) {
+          colors[groupKey] = color;
           diagram.model.commit((model) => {
             model.linkDataArray.forEach((linkData) => {
-              if (
-                linkData.category === "parallel" &&
-                ((linkData.from === pair[0] && linkData.to === pair[1]) ||
-                  (linkData.from === pair[1] && linkData.to === pair[0]))
-              ) {
+              if (linkData.colorKey === groupKey) {
                 model.set(linkData, "stroke", color);
               }
             });
-          }, "updateParallelColor");
+          }, "updateGroupColor");
           updateLegendSwatches();
         }
 
@@ -492,32 +728,21 @@
           applyParallelSpacing(value);
         });
 
-        document
-          .getElementById("kcColor")
-          .addEventListener("input", (event) => {
-            setParallelColor(["金安站", "彩电站"], event.target.value);
-          });
-        document
-          .getElementById("cgColor")
-          .addEventListener("input", (event) => {
-            setParallelColor(["彩电站", "绿荷站"], event.target.value);
-          });
-        document
-          .getElementById("sfColor")
-          .addEventListener("input", (event) => {
-            setParallelColor(["上闸站", "范家站"], event.target.value);
-          });
+        colorInputs.backbone.addEventListener("input", (event) => {
+          setGroupColor("backbone", event.target.value);
+        });
+        colorInputs.loop.addEventListener("input", (event) => {
+          setGroupColor("loop", event.target.value);
+        });
+        colorInputs.tie.addEventListener("input", (event) => {
+          setGroupColor("tie", event.target.value);
+        });
 
         document.getElementById("fitButton").addEventListener("click", () => {
           diagram.commandHandler.zoomToFit();
         });
 
         const initialLocations = new Map();
-        diagram.nodes.each((node) => {
-          if (node.data && node.data.loc) {
-            initialLocations.set(node.data.key, node.data.loc);
-          }
-        });
 
         document.getElementById("resetButton").addEventListener("click", () => {
           diagram.commit((model) => {
@@ -530,6 +755,12 @@
         });
 
         diagram.addDiagramListener("InitialLayoutCompleted", () => {
+          initialLocations.clear();
+          diagram.nodes.each((node) => {
+            if (node.data && node.data.loc) {
+              initialLocations.set(node.data.key, node.data.loc);
+            }
+          });
           diagram.commandHandler.zoomToFit();
           updateLegendSwatches();
         });
