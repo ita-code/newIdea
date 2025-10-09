@@ -1,772 +1,489 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html>
   <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>GoJS 并行线路演示（可拖动节点）</title>
-    <script src="https://unpkg.com/gojs/release/go.js"></script>
-    <script src="./ParallelRouteLink.js"></script>
+    <title>电力系统图 GoJS (V12 - 平行线+可折线最终版)</title>
+    <meta
+      name="description"
+      content="实现平行直线效果，同时允许用户手动为线路添加弯折点"
+    />
+    <meta charset="utf-8" />
     <style>
-      :root {
-        color-scheme: light;
-      }
-
-      * {
-        box-sizing: border-box;
-      }
-
-      body {
-        margin: 0;
-        font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
-        background: radial-gradient(
-          circle at top,
-          #f1f5f9 0%,
-          #e2e8f0 35%,
-          #cbd5f5 100%
-        );
-        min-height: 100vh;
-        color: #0f172a;
-        display: flex;
-        flex-direction: column;
-      }
-
-      header {
-        padding: clamp(20px, 4vw, 36px) clamp(20px, 4vw, 48px)
-          clamp(10px, 2vw, 20px);
-        background: linear-gradient(
-          135deg,
-          rgba(15, 23, 42, 0.9),
-          rgba(30, 64, 175, 0.9)
-        );
-        color: #f8fafc;
-        box-shadow: 0 16px 40px rgba(15, 23, 42, 0.35);
-        position: relative;
-        overflow: hidden;
-      }
-
-      header::after {
-        content: "";
-        position: absolute;
-        inset: 0;
-        background: radial-gradient(
-            circle at 20% 20%,
-            rgba(59, 130, 246, 0.35),
-            transparent 55%
-          ),
-          radial-gradient(
-            circle at 80% 30%,
-            rgba(129, 140, 248, 0.45),
-            transparent 50%
-          );
-        pointer-events: none;
-        mix-blend-mode: screen;
-      }
-
-      header h1 {
-        margin: 0 0 8px;
-        font-size: clamp(26px, 4vw, 40px);
-        letter-spacing: 0.03em;
-      }
-
-      header p {
-        margin: 0;
-        max-width: 760px;
-        line-height: 1.7;
-        opacity: 0.86;
-      }
-
-      main {
-        flex: 1;
-        padding: clamp(18px, 4vw, 32px);
-        display: grid;
-        gap: clamp(18px, 4vw, 32px);
-      }
-
-      .controls {
-        display: grid;
-        gap: 16px;
-        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-        align-items: end;
-      }
-
-      .control-card {
-        background: rgba(255, 255, 255, 0.9);
-        border-radius: 18px;
-        padding: 18px 20px 20px;
-        box-shadow: 0 14px 35px rgba(15, 23, 42, 0.18);
-        backdrop-filter: blur(12px);
-        border: 1px solid rgba(148, 163, 184, 0.25);
-      }
-
-      .control-card h3 {
-        margin: 0 0 14px;
-        font-size: 16px;
-        letter-spacing: 0.06em;
-        color: #1e293b;
-      }
-
-      .slider-group,
-      .color-group {
-        display: flex;
-        align-items: center;
-        gap: 14px;
-        justify-content: space-between;
-      }
-
-      .slider-group input[type="range"] {
-        flex: 1 1 auto;
-        accent-color: #2563eb;
-      }
-
-      .slider-value {
-        min-width: 42px;
-        text-align: right;
-        font-variant-numeric: tabular-nums;
-      }
-
-      label {
-        display: block;
-        font-size: 13px;
-        letter-spacing: 0.04em;
-        color: #475569;
-      }
-
-      input[type="color"] {
-        width: 54px;
-        height: 32px;
-        border: 1px solid rgba(148, 163, 184, 0.45);
-        border-radius: 10px;
-        background: #fff;
-        cursor: pointer;
-      }
-
-      button {
-        appearance: none;
-        border: none;
-        padding: 12px 20px;
-        border-radius: 999px;
-        background: linear-gradient(135deg, #2563eb, #1d4ed8);
-        color: #f8fafc;
-        font-weight: 600;
-        letter-spacing: 0.04em;
-        cursor: pointer;
-        box-shadow: 0 10px 28px rgba(37, 99, 235, 0.35);
-        transition: transform 0.18s ease, box-shadow 0.18s ease;
-      }
-
-      button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 14px 32px rgba(37, 99, 235, 0.45);
-      }
-
-      #diagramContainer {
-        position: relative;
-        border-radius: 26px;
-        min-height: clamp(520px, 60vh, 720px);
-        background: rgba(248, 250, 252, 0.82);
-        box-shadow: 0 24px 50px rgba(15, 23, 42, 0.24);
-        overflow: hidden;
-        border: 1px solid rgba(148, 163, 184, 0.3);
-      }
-
       #myDiagramDiv {
+        border: 1px solid black;
         width: 100%;
-        height: 100%;
-      }
-
-      .legend {
-        position: absolute;
-        top: 18px;
-        right: 18px;
-        background: rgba(15, 23, 42, 0.9);
-        color: #f8fafc;
-        border-radius: 16px;
-        padding: 18px;
-        font-size: 13px;
-        min-width: 220px;
-        box-shadow: 0 20px 45px rgba(15, 23, 42, 0.35);
-        backdrop-filter: blur(8px);
-      }
-
-      .legend h3 {
-        margin: 0 0 10px;
-        font-size: 14px;
-        letter-spacing: 0.08em;
-        opacity: 0.85;
-      }
-
-      .legend ul {
-        list-style: none;
-        margin: 0;
-        padding: 0;
-        display: grid;
-        gap: 10px;
-      }
-
-      .legend li {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-      }
-
-      .legend span.swatch {
-        width: 18px;
-        height: 4px;
-        border-radius: 999px;
-        display: inline-block;
-      }
-
-      @media (max-width: 860px) {
-        header {
-          text-align: center;
-        }
-
-        .legend {
-          position: static;
-          margin: 16px;
-        }
+        height: 800px;
       }
     </style>
   </head>
   <body>
-    <header>
-      <h1>GoJS 并行线路演示</h1>
-      <p>
-        这个示例展示了如何使用 <strong>ParallelRouteLink</strong>
-        扩展来复刻复杂的站点联络图。拖动节点、调整颜色与并行间距，即可得到与原始线路图类似的视觉布局。
-      </p>
-    </header>
-    <main>
-      <section class="controls">
-        <article class="control-card">
-          <h3>并行间距</h3>
-          <div class="slider-group">
-            <label for="spacingInput">Parallel spacing</label>
-            <input id="spacingInput" type="range" min="4" max="32" value="12" />
-            <span id="spacingValue" class="slider-value">12px</span>
-          </div>
-        </article>
-        <article class="control-card">
-          <h3>线路配色</h3>
-          <div class="color-group">
-            <label for="backboneColor">骨干双回路</label>
-            <input id="backboneColor" type="color" value="#c62828" />
-          </div>
-          <div class="color-group">
-            <label for="loopColor">常规线路</label>
-            <input id="loopColor" type="color" value="#2e7d32" />
-          </div>
-          <div class="color-group">
-            <label for="tieColor">联络线</label>
-            <input id="tieColor" type="color" value="#0277bd" />
-          </div>
-        </article>
-        <article class="control-card">
-          <h3>视图</h3>
-          <div style="display: flex; gap: 12px; flex-wrap: wrap">
-            <button type="button" id="fitButton">缩放以适应</button>
-            <button type="button" id="resetButton">重置节点布局</button>
-          </div>
-        </article>
-      </section>
-      <section id="diagramContainer">
-        <div
-          id="myDiagramDiv"
-          role="presentation"
-          aria-label="GoJS diagram preview"
-        ></div>
-        <aside class="legend">
-          <h3>线路分组</h3>
-          <ul class="legend-colors">
-            <li>
-              <span class="swatch" data-pair="backbone"></span>骨干双回路
-            </li>
-            <li><span class="swatch" data-pair="loop"></span>常规线路</li>
-            <li><span class="swatch" data-pair="tie"></span>联络线</li>
-          </ul>
-          <h3 style="margin-top: 18px">操作提示</h3>
-          <ul class="legend-tips">
-            <li>拖动站点即可调整网络结构。</li>
-            <li>拖动滑块调整多回路之间的间距。</li>
-            <li>通过颜色选择器切换不同线路配色。</li>
-            <li>点击“重置节点布局”恢复初始位置。</li>
-          </ul>
-        </aside>
-      </section>
-    </main>
-
+    <h1>电力系统图 GoJS (V12 - 平行线+可折线最终版)</h1>
+    <p>最终方案：默认显示平行直线，同时允许您通过拖拽为线路添加自定义折点。</p>
+    <div id="myDiagramDiv"></div>
+    <script src="https://unpkg.com/gojs/release/go.js"></script>
     <script>
-      (() => {
-        const $ = go.GraphObject.make;
+      // --------------------------------------------------------------------------------
+      // ### 步骤 1: 引入最终版的 ParallelRouteLink 定义 ###
+      // 这个版本在计算平行直线的同时，会检查用户是否已经自定义了线路形状
+      class ParallelRouteLink extends go.Link {
+        constructor(init) {
+          super();
+          if (init) Object.assign(this, init);
+        }
 
-        const networkNodes = [
-          { key: "S01", label: "金山站", info: "I₁=0.987 kA", loc: "-420 -140" },
-          { key: "S02", label: "文峰站", info: "I₂=0.921 kA", loc: "-240 -220" },
-          { key: "S03", label: "南华站", info: "I₃=1.003 kA", loc: "-60 -160" },
-          { key: "S04", label: "银川站", info: "I₄=0.876 kA", loc: "120 -120" },
-          { key: "S05", label: "城北站", info: "I₅=0.932 kA", loc: "300 -200" },
-          { key: "S06", label: "北港站", info: "I₆=0.845 kA", loc: "480 -140" },
-          { key: "S07", label: "上塘站", info: "I₇=0.715 kA", loc: "-320 -40" },
-          { key: "S08", label: "高新站", info: "I₈=0.602 kA", loc: "-160 0" },
-          { key: "S09", label: "城西站", info: "I₉=0.741 kA", loc: "20 20" },
-          { key: "S10", label: "南湾站", info: "I₁₀=0.693 kA", loc: "200 -20" },
-          { key: "S11", label: "桂林站", info: "I₁₁=0.652 kA", loc: "360 20" },
-          { key: "S12", label: "金东站", info: "I₁₂=0.601 kA", loc: "520 -20" },
-          { key: "S13", label: "柳南站", info: "I₁₃=0.578 kA", loc: "-260 120" },
-          { key: "S14", label: "竹海站", info: "I₁₄=0.512 kA", loc: "-80 160" },
-          { key: "S15", label: "荷花站", info: "I₁₅=0.498 kA", loc: "120 150" },
-          { key: "S16", label: "青浦站", info: "I₁₆=0.462 kA", loc: "280 140" },
-          { key: "S17", label: "虹桥站", info: "I₁₇=0.425 kA", loc: "460 180" },
-          { key: "S18", label: "海川站", info: "I₁₈=0.398 kA", loc: "620 140" },
-          { key: "S19", label: "湖心站", info: "I₁₉=0.372 kA", loc: "0 260" },
-          { key: "S20", label: "钱塘站", info: "I₂₀=0.355 kA", loc: "180 260" },
-          { key: "S21", label: "新城站", info: "I₂₁=0.341 kA", loc: "340 260" },
-          { key: "S22", label: "太湖站", info: "I₂₂=0.329 kA", loc: "500 260" },
-          { key: "S23", label: "港湾站", info: "I₂₃=0.301 kA", loc: "660 260" },
-        ];
+        computePoints() {
+          const result = super.computePoints();
 
-        const colorInputs = {
-          backbone: document.getElementById("backboneColor"),
-          loop: document.getElementById("loopColor"),
-          tie: document.getElementById("tieColor"),
-        };
-
-        const colors = {
-          backbone: colorInputs.backbone.value,
-          loop: colorInputs.loop.value,
-          tie: colorInputs.tie.value,
-        };
-
-        const connectionConfigs = [
-          {
-            from: "S01",
-            to: "S02",
-            circuits: 2,
-            colorKey: "backbone",
-            label: "L-0/4 1.026",
-            strokeWidth: 3,
-          },
-          {
-            from: "S02",
-            to: "S03",
-            colorKey: "loop",
-            label: "1-1 0.998",
-          },
-          {
-            from: "S03",
-            to: "S04",
-            colorKey: "loop",
-            label: "1-2 0.977",
-          },
-          {
-            from: "S04",
-            to: "S05",
-            circuits: 2,
-            colorKey: "backbone",
-            label: "L-0/5 1.013",
-            strokeWidth: 3,
-          },
-          {
-            from: "S05",
-            to: "S06",
-            colorKey: "loop",
-            label: "1-3 0.968",
-          },
-          {
-            from: "S01",
-            to: "S07",
-            colorKey: "loop",
-            label: "2-1 0.945",
-          },
-          {
-            from: "S07",
-            to: "S08",
-            colorKey: "loop",
-            label: "2-2 0.912",
-          },
-          {
-            from: "S08",
-            to: "S09",
-            colorKey: "loop",
-            label: "2-3 0.887",
-          },
-          {
-            from: "S09",
-            to: "S10",
-            colorKey: "loop",
-            label: "2-4 0.865",
-          },
-          {
-            from: "S10",
-            to: "S11",
-            colorKey: "loop",
-            label: "2-5 0.842",
-          },
-          {
-            from: "S11",
-            to: "S12",
-            colorKey: "loop",
-            label: "2-6 0.823",
-          },
-          {
-            from: "S07",
-            to: "S13",
-            colorKey: "loop",
-            label: "3-1 0.812",
-          },
-          {
-            from: "S13",
-            to: "S14",
-            colorKey: "loop",
-            label: "3-2 0.801",
-          },
-          {
-            from: "S14",
-            to: "S15",
-            colorKey: "loop",
-            label: "3-3 0.792",
-          },
-          {
-            from: "S15",
-            to: "S16",
-            colorKey: "loop",
-            label: "3-4 0.784",
-          },
-          {
-            from: "S16",
-            to: "S17",
-            colorKey: "loop",
-            label: "3-5 0.776",
-          },
-          {
-            from: "S17",
-            to: "S18",
-            colorKey: "loop",
-            label: "3-6 0.769",
-          },
-          {
-            from: "S14",
-            to: "S19",
-            colorKey: "loop",
-            label: "4-1 0.761",
-          },
-          {
-            from: "S19",
-            to: "S20",
-            colorKey: "loop",
-            label: "4-2 0.754",
-          },
-          {
-            from: "S20",
-            to: "S21",
-            colorKey: "loop",
-            label: "4-3 0.748",
-          },
-          {
-            from: "S21",
-            to: "S22",
-            colorKey: "loop",
-            label: "4-4 0.743",
-          },
-          {
-            from: "S22",
-            to: "S23",
-            colorKey: "loop",
-            label: "4-5 0.738",
-          },
-          {
-            from: "S03",
-            to: "S08",
-            colorKey: "tie",
-            label: "联络 0.926",
-            curviness: -30,
-          },
-          {
-            from: "S09",
-            to: "S15",
-            colorKey: "tie",
-            label: "联络 0.901",
-            curviness: -40,
-          },
-          {
-            from: "S16",
-            to: "S21",
-            colorKey: "tie",
-            label: "联络 0.876",
-            curviness: -25,
-          },
-          {
-            from: "S10",
-            to: "S16",
-            colorKey: "tie",
-            label: "联络 0.864",
-            curviness: 36,
-          },
-          {
-            from: "S05",
-            to: "S11",
-            colorKey: "tie",
-            label: "联络 0.853",
-            curviness: -40,
-          },
-          {
-            from: "S12",
-            to: "S18",
-            colorKey: "tie",
-            label: "联络 0.846",
-            curviness: -36,
-          },
-          {
-            from: "S15",
-            to: "S20",
-            colorKey: "tie",
-            label: "联络 0.833",
-            curviness: 28,
-          },
-        ];
-
-        const linkData = [];
-
-        connectionConfigs.forEach((config) => {
-          const circuits = config.circuits ?? 1;
-          const category = circuits > 1 ? "parallel" : "single";
-          const strokeWidth = config.strokeWidth ?? (circuits > 1 ? 3 : 2);
-
-          for (let i = 0; i < circuits; i += 1) {
-            linkData.push({
-              category,
-              from: config.from,
-              to: config.to,
-              stroke: colors[config.colorKey],
-              colorKey: config.colorKey,
-              strokeWidth,
-              curviness: config.curviness,
-              label: i === 0 ? config.label ?? "" : "",
-            });
+          // --- 核心改动 ---
+          // 如果用户已经通过拖拽添加了中间点（pointsCount > 2），
+          // 则尊重用户的自定义形状，不再进行自动平行计算。
+          if (this.pointsCount > 2) {
+            return result;
           }
-        });
+          // --- 改动结束 ---
 
-        const diagram = $(go.Diagram, "myDiagramDiv", {
-          "undoManager.isEnabled": true,
-          padding: 24,
-          contentAlignment: go.Spot.Center,
-          isReadOnly: false,
-        });
+          if (
+            this.isOrthogonal ||
+            this.curve === go.Curve.Bezier ||
+            !this.hasCurviness()
+          ) {
+            return result;
+          }
 
-        diagram.grid.visible = false;
-        diagram.toolManager.draggingTool.isGridSnapEnabled = false;
+          const curv = this.computeCurviness();
+          if (curv === 0) return result;
 
-        diagram.nodeTemplate = $(
+          const fromnode = this.fromNode;
+          const tonode = this.toNode;
+          if (!fromnode || !tonode) return result;
+
+          const frompt = this.getPoint(0);
+          const topt = this.getPoint(this.pointsCount - 1);
+
+          const dx = topt.x - frompt.x;
+          const dy = topt.y - frompt.y;
+
+          const perpendicular = new go.Point(-dy, dx);
+          perpendicular.normalize();
+          perpendicular.x *= curv;
+          perpendicular.y *= curv;
+
+          const newFromPt = new go.Point(
+            frompt.x + perpendicular.x,
+            frompt.y + perpendicular.y
+          );
+          const newToPt = new go.Point(
+            topt.x + perpendicular.x,
+            topt.y + perpendicular.y
+          );
+
+          this.clearPoints();
+          this.addPoint(newFromPt);
+          this.addPoint(newToPt);
+
+          return true;
+        }
+      }
+      // --------------------------------------------------------------------------------
+
+      const $ = go.GraphObject.make;
+
+      const myDiagram = new go.Diagram("myDiagramDiv", {
+        "undoManager.isEnabled": true,
+        initialContentAlignment: go.Spot.Center,
+        "toolManager.mouseWheelBehavior": go.ToolManager.WheelZoom,
+      });
+
+      // 节点模板 (无变化)
+      myDiagram.nodeTemplate = $(
+        go.Node,
+        "Spot",
+        { locationSpot: go.Spot.Center, locationObjectName: "SHAPE" },
+        new go.Binding("location", "loc", go.Point.parse).makeTwoWay(
+          go.Point.stringify
+        ),
+        $(go.Shape, "Circle", {
+          name: "SHAPE",
+          width: 40,
+          height: 40,
+          fill: "white",
+          stroke: "#009900",
+          strokeWidth: 2,
+        }),
+        $(
+          go.Panel,
+          "Vertical",
+          { alignment: go.Spot.Center },
+          $(
+            go.TextBlock,
+            { font: "bold 11pt sans-serif" },
+            new go.Binding("text", "key")
+          ),
+          $(
+            go.TextBlock,
+            { font: "9pt sans-serif" },
+            new go.Binding("text", "voltage", (v) => (v ? `${v}` : ""))
+          ),
+          $(
+            go.TextBlock,
+            { font: "9pt sans-serif", stroke: "red" },
+            new go.Binding("text", "g", (g) => (g ? `G: ${g}` : ""))
+          ),
+          $(
+            go.TextBlock,
+            { font: "9pt sans-serif" },
+            new go.Binding("text", "l", (l) => (l ? `L: ${l}` : ""))
+          )
+        )
+      );
+      myDiagram.nodeTemplateMap.add(
+        "Generator",
+        $(
           go.Node,
           "Spot",
-          {
-            locationSpot: go.Spot.Center,
-            cursor: "grab",
-            mouseEnter: (e, node) => (node.cursor = "grabbing"),
-            mouseLeave: (e, node) => (node.cursor = "grab"),
-          },
+          { locationSpot: go.Spot.Center, locationObjectName: "SHAPE_PANEL" },
           new go.Binding("location", "loc", go.Point.parse).makeTwoWay(
             go.Point.stringify
           ),
           $(
-            go.Shape,
-            "Circle",
-            {
-              fill: "#ffffff",
-              stroke: "#0f766e",
+            go.Panel,
+            "Spot",
+            { name: "SHAPE_PANEL" },
+            $(go.Shape, "Rectangle", {
+              width: 50,
+              height: 50,
+              fill: "white",
+              stroke: "red",
               strokeWidth: 2,
-              desiredSize: new go.Size(24, 24),
-              name: "NODE_CIRCLE",
-            }
+            }),
+            $(go.Shape, {
+              geometryString: "M0 15 C10 0, 20 30, 30 15",
+              stroke: "red",
+              strokeWidth: 2,
+              width: 30,
+              height: 15,
+              fill: null,
+            })
           ),
           $(
             go.Panel,
             "Vertical",
-            {
-              alignment: new go.Spot(0.5, 1, 0, 26),
-              alignmentFocus: go.Spot.Top,
-            },
+            { alignment: go.Spot.Center, margin: 4 },
             $(
               go.TextBlock,
-              {
-                font: "600 13px 'Segoe UI', 'Microsoft YaHei', sans-serif",
-                stroke: "#0f172a",
-                margin: new go.Margin(2, 4, 0, 4),
-              },
-              new go.Binding("text", "label")
+              { font: "bold 11pt sans-serif", stroke: "red" },
+              new go.Binding("text", "key")
             ),
             $(
               go.TextBlock,
-              {
-                font: "500 11px 'JetBrains Mono', 'Fira Code', monospace",
-                stroke: "#475569",
-                background: "rgba(255,255,255,0.9)",
-                margin: new go.Margin(2, 4, 4, 4),
-              },
-              new go.Binding("text", "info"),
-              new go.Binding("visible", "info", (info) => Boolean(info))
-            )
-          )
-        );
-
-        diagram.linkTemplateMap.add(
-          "single",
-          $(
-            go.Link,
-            {
-              routing: go.Link.AvoidsNodes,
-              corner: 6,
-              relinkableFrom: true,
-              relinkableTo: true,
-              resegmentable: true,
-              adjusting: go.Link.End,
-            },
-            $(
-              go.Shape,
-              {
-                isPanelMain: true,
-              },
-              new go.Binding("stroke", "stroke"),
-              new go.Binding("strokeWidth", "strokeWidth"),
-              new go.Binding("curviness", "curviness")
+              { font: "9pt sans-serif" },
+              new go.Binding("text", "voltage", (v) => (v ? `${v}` : ""))
             ),
             $(
               go.TextBlock,
-              {
-                segmentFraction: 0.5,
-                segmentOffset: new go.Point(0, -12),
-                font: "500 11px 'JetBrains Mono', 'Fira Code', monospace",
-                stroke: "#0f172a",
-                background: "rgba(255,255,255,0.85)",
-                margin: new go.Margin(2, 4, 2, 4),
-              },
-              new go.Binding("text", "label"),
-              new go.Binding("visible", "label", (label) => Boolean(label))
-            )
-          )
-        );
-
-        diagram.linkTemplateMap.add(
-          "parallel",
-          $(
-            ParallelRouteLink,
-            {
-              routing: go.Link.AvoidsNodes,
-              corner: 6,
-              relinkableFrom: true,
-              relinkableTo: true,
-              resegmentable: true,
-              adjusting: go.Link.End,
-              parallelSpacing: Number(
-                document.getElementById("spacingInput").value
-              ),
-            },
-            $(
-              go.Shape,
-              { isPanelMain: true },
-              new go.Binding("stroke", "stroke"),
-              new go.Binding("strokeWidth", "strokeWidth"),
-              new go.Binding("curviness", "curviness")
+              { font: "9pt sans-serif", stroke: "red" },
+              new go.Binding("text", "g", (g) => `G: ${g}`)
             ),
             $(
               go.TextBlock,
-              {
-                segmentFraction: 0.5,
-                segmentOffset: new go.Point(0, -14),
-                font: "500 11px 'JetBrains Mono', 'Fira Code', monospace",
-                stroke: "#0f172a",
-                background: "rgba(255,255,255,0.85)",
-                margin: new go.Margin(2, 4, 2, 4),
-              },
-              new go.Binding("text", "label"),
-              new go.Binding("visible", "label", (label) => Boolean(label))
+              { font: "9pt sans-serif" },
+              new go.Binding("text", "l", (l) => `L: ${l}`)
             )
           )
-        );
+        )
+      );
 
-        diagram.model = new go.GraphLinksModel(networkNodes, linkData);
+      // ### 步骤 2: 更新链接模板以支持手动添加折点 ###
+      myDiagram.linkTemplate = $(
+        ParallelRouteLink,
+        {
+          resegmentable: true, // <-- 关键：允许用户添加/删除折点
+          reshapable: true,
+          routing: go.Link.Normal,
+        },
+        new go.Binding("curviness"),
+        $(go.Shape, { strokeWidth: 2 }, new go.Binding("stroke", "color")),
+        $(
+          go.TextBlock,
+          {
+            segmentOffset: new go.Point(0, -10),
+            font: "9pt sans-serif",
+            background: "white",
+          },
+          new go.Binding("text", "label")
+        )
+      );
 
-        window.diagram = diagram;
-
-        function updateLegendSwatches() {
-          document
-            .querySelectorAll(".legend-colors span.swatch")
-            .forEach((swatch) => {
-              const key = swatch.dataset.pair;
-              swatch.style.background = colors[key] || "#94a3b8";
-            });
+      // ### 步骤 3: 自动分配 curviness 值的辅助函数 (无变化) ###
+      function assignCurviness(linkDataArray) {
+        const linkGroups = new Map();
+        for (const link of linkDataArray) {
+          const from = link.from;
+          const to = link.to;
+          const key = from < to ? `${from}|${to}` : `${to}|${from}`;
+          if (!linkGroups.has(key)) linkGroups.set(key, []);
+          linkGroups.get(key).push(link);
         }
 
-        function setGroupColor(groupKey, color) {
-          colors[groupKey] = color;
-          diagram.model.commit((model) => {
-            model.linkDataArray.forEach((linkData) => {
-              if (linkData.colorKey === groupKey) {
-                model.set(linkData, "stroke", color);
-              }
+        for (const group of linkGroups.values()) {
+          if (group.length > 1) {
+            const total = group.length;
+            const spacing = 8;
+            group.forEach((link, index) => {
+              link.curviness = (index - (total - 1) / 2) * spacing;
             });
-          }, "updateGroupColor");
-          updateLegendSwatches();
+          }
         }
+      }
 
-        function applyParallelSpacing(spacing) {
-          diagram.startTransaction("updateParallelSpacing");
-          diagram.links.each((link) => {
-            if (link instanceof ParallelRouteLink) {
-              link.parallelSpacing = spacing;
-              link.invalidateRoute();
-            }
-          });
-          diagram.commitTransaction("updateParallelSpacing");
-        }
+      const nodeDataArray = [
+        { key: "平寨站", l: "-168.1", loc: "0 50" },
+        { key: "黎阳站", l: "-198.2", loc: "150 0" },
+        { key: "新塘站", l: "-66.1", color: "red", loc: "300 50" },
+        { key: "岩头寨", g: "0", l: "321.3", loc: "0 250" },
+        { key: "草鞋坳", l: "-187.9", loc: "150 250" },
+        { key: "翁村站", l: "-1182.0", loc: "300 200" },
+        {
+          key: "安民电厂",
+          category: "Generator",
+          g: 297.6,
+          l: 19.8,
+          loc: "150 400",
+        },
+        { key: "优的站", l: "91.3", loc: "0 500" },
+        { key: "社洞基站", l: "78.4", loc: "150 600" },
+        {
+          key: "翁奇电厂",
+          category: "Generator",
+          g: 173.7,
+          l: 11.4,
+          loc: "650 500",
+        },
+        { key: "翁嘎站", l: "-153.8", loc: "150 800" },
+        { key: "杨家站", l: "-105.7", loc: "300 650" },
+        { key: "地罗站", l: "-153.9", loc: "450 700" },
+        { key: "典郎站", l: "97.5", loc: "450 850" },
+        { key: "西凉站", l: "127.2", loc: "450 500" },
+        { key: "得佑站", l: "157.4", loc: "300 450" },
+        { key: "排吊站", l: "7.0", loc: "450 350" },
+        { key: "功德站", l: "42.5", loc: "450 250" },
+        { key: "平朝站", l: "-4.7", loc: "600 300" },
+        { key: "上洞站", l: "9.0", loc: "600 150" },
+        { key: "挂榜站", l: "179.4", loc: "750 350" },
+        { key: "佳城站", l: "0.2", loc: "750 50" },
+        { key: "甲拉站", l: "121.4", loc: "900 450" },
+        { key: "新塘站-分接", l: "-422.5", color: "red", loc: "450 20" },
+      ];
 
-        const spacingInput = document.getElementById("spacingInput");
-        const spacingValue = document.getElementById("spacingValue");
-        spacingInput.addEventListener("input", (event) => {
-          const value = Number(event.target.value);
-          spacingValue.textContent = `${value}px`;
-          applyParallelSpacing(value);
-        });
+      const linkDataArray = [
+        {
+          from: "平寨站",
+          to: "黎阳站",
+          label: "1.7070+j16.1090",
+          color: "#009900",
+        },
+        {
+          from: "黎阳站",
+          to: "新塘站",
+          label: "2.2390+j1.9940",
+          color: "#009900",
+        },
+        {
+          from: "黎阳站",
+          to: "岩头寨",
+          label: "2.9860-j660.1540",
+          color: "#009900",
+        },
+        {
+          from: "岩头寨",
+          to: "新塘站-分接",
+          label: "0.7000-j8.4820",
+          color: "#ff0000",
+        },
+        {
+          from: "岩头寨",
+          to: "新塘站-分接",
+          label: "0.7000-j8.4820",
+          color: "#ff0000",
+        },
+        {
+          from: "新塘站-分接",
+          to: "佳城站",
+          label: "0.7300-j8.4820",
+          color: "#ff0000",
+        },
+        {
+          from: "岩头寨",
+          to: "草鞋坳",
+          label: "0.7810-j8.9540",
+          color: "#009900",
+        },
+        {
+          from: "岩头寨",
+          to: "优的站",
+          label: "3.2180+j3.1750",
+          color: "#009900",
+        },
+        {
+          from: "优的站",
+          to: "社洞基站",
+          label: "0.8230+j8.0490",
+          color: "#009900",
+        },
+        {
+          from: "社洞基站",
+          to: "安民电厂",
+          label: "0.2880+j2.9810",
+          color: "#009900",
+        },
+        {
+          from: "社洞基站",
+          to: "安民电厂",
+          label: "0.2880+j2.9810",
+          color: "#009900",
+        },
+        {
+          from: "社洞基站",
+          to: "安民电厂",
+          label: "0.2880+j2.9810",
+          color: "#009900",
+        },
+        {
+          from: "社洞基站",
+          to: "杨家站",
+          label: "1.2480+j6.4480",
+          color: "#009900",
+        },
+        {
+          from: "杨家站",
+          to: "翁嘎站",
+          label: "2.6100+j5.1020",
+          color: "#009900",
+        },
+        {
+          from: "杨家站",
+          to: "地罗站",
+          label: "1.6900-j5.0020",
+          color: "#009900",
+        },
+        {
+          from: "地罗站",
+          to: "典郎站",
+          label: "0.4500+j1.2290",
+          color: "#009900",
+        },
+        {
+          from: "地罗站",
+          to: "西凉站",
+          label: "0.8820+j1.0200",
+          color: "#009900",
+        },
+        {
+          from: "西凉站",
+          to: "安民电厂",
+          label: "0.6690+j4.3650",
+          color: "#009900",
+        },
+        {
+          from: "安民电厂",
+          to: "得佑站",
+          label: "0.3320-j2.9580",
+          color: "#009900",
+        },
+        {
+          from: "安民电厂",
+          to: "草鞋坳",
+          label: "0.8890+j4.8610",
+          color: "#009900",
+        },
+        {
+          from: "草鞋坳",
+          to: "翁村站",
+          label: "4.4790-j102.6220",
+          color: "#009900",
+        },
+        {
+          from: "得佑站",
+          to: "排吊站",
+          label: "0.2920+j6.2620",
+          color: "#009900",
+        },
+        {
+          from: "排吊站",
+          to: "功德站",
+          label: "0.9190+j6.6010",
+          color: "#009900",
+        },
+        {
+          from: "功德站",
+          to: "新塘站-分接",
+          label: "0.7670+j5.6970",
+          color: "#009900",
+        },
+        {
+          from: "功德站",
+          to: "平朝站",
+          label: "0.8410+j1.066",
+          color: "#009900",
+        },
+        {
+          from: "平朝站",
+          to: "上洞站",
+          label: "1.0920+j1.1860",
+          color: "#009900",
+        },
+        {
+          from: "上洞站",
+          to: "佳城站",
+          label: "2.3100+j7.2880",
+          color: "#009900",
+        },
+        {
+          from: "佳城站",
+          to: "甲拉站",
+          label: "1.1190+j4.1980",
+          color: "#009900",
+        },
+        {
+          from: "甲拉站",
+          to: "翁奇电厂",
+          label: "1.0930+j4.1680",
+          color: "#009900",
+        },
+        {
+          from: "挂榜站",
+          to: "翁奇电厂",
+          label: "0.7970-j0.8870",
+          color: "#009900",
+        },
+        {
+          from: "挂榜站",
+          to: "平朝站",
+          label: "1.0920+j1.1860",
+          color: "#009900",
+        },
+        {
+          from: "挂榜站",
+          to: "平朝站",
+          label: "1.0920+j1.1860",
+          color: "#009900",
+        },
+        {
+          from: "西凉站",
+          to: "翁奇电厂",
+          label: "3.9860+j12.4840",
+          color: "#009900",
+        },
+        {
+          from: "西凉站",
+          to: "翁奇电厂",
+          label: "3.9860+j12.4840",
+          color: "#009900",
+        },
+      ];
 
-        colorInputs.backbone.addEventListener("input", (event) => {
-          setGroupColor("backbone", event.target.value);
-        });
-        colorInputs.loop.addEventListener("input", (event) => {
-          setGroupColor("loop", event.target.value);
-        });
-        colorInputs.tie.addEventListener("input", (event) => {
-          setGroupColor("tie", event.target.value);
-        });
+      assignCurviness(linkDataArray);
 
-        document.getElementById("fitButton").addEventListener("click", () => {
-          diagram.commandHandler.zoomToFit();
-        });
-
-        const initialLocations = new Map();
-
-        document.getElementById("resetButton").addEventListener("click", () => {
-          diagram.commit((model) => {
-            initialLocations.forEach((loc, key) => {
-              const data = model.findNodeDataForKey(key);
-              if (data) model.set(data, "loc", loc);
-            });
-          }, "resetLocations");
-          diagram.commandHandler.zoomToFit();
-        });
-
-        diagram.addDiagramListener("InitialLayoutCompleted", () => {
-          initialLocations.clear();
-          diagram.nodes.each((node) => {
-            if (node.data && node.data.loc) {
-              initialLocations.set(node.data.key, node.data.loc);
-            }
-          });
-          diagram.commandHandler.zoomToFit();
-          updateLegendSwatches();
-        });
-
-        updateLegendSwatches();
-      })();
+      myDiagram.model = new go.GraphLinksModel(nodeDataArray, linkDataArray);
     </script>
   </body>
 </html>
