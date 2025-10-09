@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>电力系统图 GoJS (V12 - 平行线+可折线最终版)</title>
+    <title>电力系统图 GoJS (V13 - 任意点折线)</title>
     <meta
       name="description"
-      content="实现平行直线效果，同时允许用户手动为线路添加弯折点"
+      content="实现平行直线效果，并允许用户在任意点位点击拖拽，为线路添加弯折"
     />
     <meta charset="utf-8" />
     <style>
@@ -16,32 +16,24 @@
     </style>
   </head>
   <body>
-    <h1>电力系统图 GoJS (V12 - 平行线+可折线最终版)</h1>
-    <p>最终方案：默认显示平行直线，同时允许您通过拖拽为线路添加自定义折点。</p>
+    <h1>电力系统图 GoJS (V13 - 任意点折线)</h1>
+    <p>
+      最终方案：默认平行直线，并支持在<b>任意点位</b>点击拖拽线路，为其添加自定义折点。
+    </p>
     <div id="myDiagramDiv"></div>
     <script src="https://unpkg.com/gojs/release/go.js"></script>
     <script>
-      // --------------------------------------------------------------------------------
-      // ### 步骤 1: 引入最终版的 ParallelRouteLink 定义 ###
-      // 这个版本在计算平行直线的同时，会检查用户是否已经自定义了线路形状
+      // ### 最终版的 ParallelRouteLink 定义 (无变化) ###
       class ParallelRouteLink extends go.Link {
         constructor(init) {
           super();
           if (init) Object.assign(this, init);
         }
-
         computePoints() {
-          // --- 核心改动 ---
-          // 如果用户已经通过拖拽添加了中间点（pointsCount > 2），
-          // 则尊重用户的自定义形状，不再进行自动平行计算。
-          // 这种情况下，直接调用基类的方法来处理用户定义的点。
           if (this.pointsCount > 2) {
             return super.computePoints();
           }
-          // --- 改动结束 ---
-
           const result = super.computePoints();
-
           if (
             this.isOrthogonal ||
             this.curve === go.Curve.Bezier ||
@@ -49,25 +41,19 @@
           ) {
             return result;
           }
-
           const curv = this.computeCurviness();
           if (curv === 0) return result;
-
           const fromnode = this.fromNode;
           const tonode = this.toNode;
           if (!fromnode || !tonode) return result;
-
           const frompt = this.getPoint(0);
           const topt = this.getPoint(this.pointsCount - 1);
-
           const dx = topt.x - frompt.x;
           const dy = topt.y - frompt.y;
-
           const perpendicular = new go.Point(-dy, dx);
           perpendicular.normalize();
           perpendicular.x *= curv;
           perpendicular.y *= curv;
-
           const newFromPt = new go.Point(
             frompt.x + perpendicular.x,
             frompt.y + perpendicular.y
@@ -76,12 +62,77 @@
             topt.x + perpendicular.x,
             topt.y + perpendicular.y
           );
-
           this.clearPoints();
           this.addPoint(newFromPt);
           this.addPoint(newToPt);
+          return true;
+        }
+      }
+
+      // ### 新增: 自定义工具，用于在任意点位为线路添加折点 ###
+      class LinkBendingTool extends go.Tool {
+        constructor(init) {
+          super();
+          this.name = "LinkBending";
+          if (init) Object.assign(this, init);
+        }
+
+        canStart() {
+          if (!this.isEnabled) return false;
+          const diagram = this.diagram;
+          if (diagram.isReadOnly || diagram.isModelReadOnly) return false;
+          if (!diagram.lastInput.left) return false;
+          const link = diagram.findPartAt(
+            diagram.firstInput.documentPoint,
+            false
+          );
+          if (!(link instanceof go.Link) || !link.canReshape()) return false;
+
+          // --- FIX START ---
+          // 检查鼠标是否在现有的工具手柄上（这些手柄是 Adornment 的一部分）
+          // 旧代码: if (diagram.findToolHandleAt(diagram.firstInput.documentPoint, null) !== null) return false; // 这是错误的调用
+          // 正确的逻辑:
+          const obj = diagram.findObjectAt(
+            diagram.firstInput.documentPoint,
+            null,
+            (o) => o.part instanceof go.Adornment
+          );
+          if (obj) return false; // 如果鼠标在任何手柄上，则不允许启动此工具
+          // --- FIX END ---
 
           return true;
+        }
+
+        doActivate() {
+          const diagram = this.diagram;
+          const link = diagram.findPartAt(
+            diagram.firstInput.documentPoint,
+            false
+          );
+          if (!(link instanceof go.Link)) return;
+          const points = link.points.copy();
+          const nearPoint = diagram.firstInput.documentPoint;
+          const segmentIndex = link.findClosestSegment(nearPoint);
+          points.insertAt(segmentIndex + 1, nearPoint);
+          this.startTransaction(this.name);
+          link.points = points;
+          link.isSelected = true;
+          link.updateAdornments();
+          const reshapingTool = diagram.toolManager.reshapingTool;
+          if (reshapingTool) {
+            const adornment = link.findAdornment("Reshaping");
+            if (adornment) {
+              const handle = adornment.findToolHandleAt(nearPoint, null);
+              if (handle) {
+                reshapingTool.handle = handle;
+                reshapingTool.adornedLink = link;
+                diagram.currentTool = reshapingTool;
+                reshapingTool.doActivate();
+              }
+            }
+          }
+          this.transactionResult = this.name;
+          this.isActive = false;
         }
       }
       // --------------------------------------------------------------------------------
@@ -93,6 +144,9 @@
         initialContentAlignment: go.Spot.Center,
         "toolManager.mouseWheelBehavior": go.ToolManager.WheelZoom,
       });
+
+      // ### 激活新的自定义工具 ###
+      myDiagram.toolManager.mouseDownTools.add(new LinkBendingTool());
 
       // 节点模板 (无变化)
       myDiagram.nodeTemplate = $(
@@ -193,16 +247,20 @@
         )
       );
 
-      // ### 步骤 2: 更新链接模板以支持手动添加折点 ###
+      // 链接模板 (无变化)
       myDiagram.linkTemplate = $(
         ParallelRouteLink,
         {
-          resegmentable: true, // <-- 关键：允许用户添加/删除折点
+          resegmentable: true,
           reshapable: true,
           routing: go.Link.Normal,
         },
         new go.Binding("curviness"),
-        $(go.Shape, { strokeWidth: 2 }, new go.Binding("stroke", "color")),
+        $(
+          go.Shape,
+          { strokeWidth: 2, stroke: "black" },
+          new go.Binding("stroke", "color")
+        ), // default stroke to black
         $(
           go.TextBlock,
           {
@@ -214,7 +272,7 @@
         )
       );
 
-      // ### 步骤 3: 自动分配 curviness 值的辅助函数 (无变化) ###
+      // 自动分配 curviness 值的辅助函数 (无变化)
       function assignCurviness(linkDataArray) {
         const linkGroups = new Map();
         for (const link of linkDataArray) {
@@ -224,7 +282,6 @@
           if (!linkGroups.has(key)) linkGroups.set(key, []);
           linkGroups.get(key).push(link);
         }
-
         for (const group of linkGroups.values()) {
           if (group.length > 1) {
             const total = group.length;
