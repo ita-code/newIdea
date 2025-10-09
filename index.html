@@ -31,15 +31,16 @@
         }
 
         computePoints() {
-          const result = super.computePoints();
-
           // --- 核心改动 ---
           // 如果用户已经通过拖拽添加了中间点（pointsCount > 2），
           // 则尊重用户的自定义形状，不再进行自动平行计算。
+          // 这种情况下，直接调用基类的方法来处理用户定义的点。
           if (this.pointsCount > 2) {
-            return result;
+            return super.computePoints();
           }
           // --- 改动结束 ---
+
+          const result = super.computePoints();
 
           if (
             this.isOrthogonal ||
