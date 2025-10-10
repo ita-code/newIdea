@@ -169,7 +169,6 @@
             this.transactionResult = this.name;
           }
           this.stopTool();
-          if (this.diagram) this.diagram.clearSelection();
         }
         doCancel() {
           if (this._adornedLink && this._originalPoints) {
@@ -178,11 +177,9 @@
           this.stopTool();
         }
         stopTool() {
-          this.isActive = false;
           const diagram = this.diagram;
           const link = this._adornedLink;
           if (diagram) {
-            diagram.isMouseCaptured = false;
             diagram.currentCursor = "";
           }
           if (this._indicator && diagram) {
@@ -198,6 +195,7 @@
           this._pointIndex = -1;
           this._startPoint = null;
           this._hasInserted = false;
+          go.Tool.prototype.stopTool.call(this);
         }
         testInsertPoint(link, point) {
           const seg = link.findClosestSegment(point);
