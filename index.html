@@ -70,23 +70,28 @@
       }
 
       // ### 任意点弯折工具：带拖动提示 + 防抖 ###
+      // 说明：
+      //   1. 鼠标左键按在线路上时不会立即插入折点，而是记录起始位置。
+      //   2. 只有在拖动距离超过阈值后才真正插入折点，并出现一个浅蓝色圆点提示用户当前可拖拽折线。
+      //   3. 松开鼠标后提示消失、折点保留，右键不受影响，因为 canStart 只处理左键事件。
+      //   4. stopTool 会调用父类逻辑，确保 Diagram 状态（鼠标捕获、默认工具等）恢复正常。
       class AnyPointReshapeTool extends go.Tool {
         constructor() {
           super();
           this.name = "AnyPointReshape";
-          this._adornedLink = null;
-          this._pointIndex = -1;
-          this._originalPoints = null;
-          this._indicator = null;
-          this._startPoint = null;
-          this._hasInserted = false;
-          this._dragThresholdSq = 64;
+          this._adornedLink = null; // 当前正在操作的连线引用
+          this._pointIndex = -1; // 插入的折点索引
+          this._originalPoints = null; // 原始 points，用于撤销或取消
+          this._indicator = null; // 拖动提示圆点（添加到 Tool 图层）
+          this._startPoint = null; // 鼠标按下时的位置
+          this._hasInserted = false; // 是否已真正插入折点
+          this._dragThresholdSq = 64; // 触发折点插入的最小距离平方（8px 的平方）
         }
         canStart() {
           const diagram = this.diagram;
           if (!diagram || diagram.isReadOnly) return false;
-          const input = diagram.firstInput;
-          if (!input.left) return false;
+          const input = diagram.firstInput; // 首帧输入，用于判定是否左键
+          if (!input.left) return false; // 防止右键菜单或其它按键触发
           const part = diagram.findPartAt(input.documentPoint, true);
           return part instanceof go.Link && part.canReshape();
         }
@@ -105,8 +110,8 @@
           this._pointIndex = -1;
           this._indicator = null;
           this._hasInserted = false;
-          diagram.currentCursor = "grabbing";
-          diagram.isMouseCaptured = true;
+          diagram.currentCursor = "grabbing"; // 告知用户当前可拖动
+          diagram.isMouseCaptured = true; // 捕获鼠标，后续 move/up 事件都分发给此工具
           this.isActive = true;
         }
         _ensureInserted(targetPoint) {
@@ -118,10 +123,11 @@
           const pts = link.points.copy();
           const seg = link.findClosestSegment(targetPoint);
           this._pointIndex = seg + 1;
-          pts.insertAt(this._pointIndex, targetPoint.copy());
+          pts.insertAt(this._pointIndex, targetPoint.copy()); // 在最近线段中插入折点
           link.points = pts;
           this._hasInserted = true;
 
+          // 构建浅蓝色提示圆点，视觉反馈当前折点位置
           const indicator = new go.Part("Spot", {
             layerName: "Tool",
             locationSpot: go.Spot.Center,
@@ -145,7 +151,7 @@
           if (!this.isActive) return;
           const link = this._adornedLink;
           if (!link) return;
-          const p = this.diagram.lastInput.documentPoint.copy();
+          const p = this.diagram.lastInput.documentPoint.copy(); // 实时跟踪鼠标位置
           if (
             !this._hasInserted &&
             this._startPoint &&
@@ -154,13 +160,13 @@
             this._ensureInserted(p);
           }
           if (!this._hasInserted || this._pointIndex < 0) {
-            if (this._indicator) this._indicator.location = p;
+            if (this._indicator) this._indicator.location = p; // 尚未插点时仅移动提示
             return;
           }
           const pts = link.points.copy();
           if (this._pointIndex >= 0 && this._pointIndex < link.pointsCount) {
-            pts.set(this._pointIndex, p);
-            link.points = pts;
+            pts.set(this._pointIndex, p); // 更新折点位置，让折线跟随鼠标
+            link.points = pts; // 写回路线
           }
           if (this._indicator) this._indicator.location = p;
         }
@@ -168,7 +174,7 @@
           if (this.isActive && this._hasInserted) {
             this.transactionResult = this.name;
           }
-          this.stopTool();
+          this.stopTool(); // 交给 stopTool 做善后
         }
         doCancel() {
           if (this._adornedLink && this._originalPoints) {
@@ -195,7 +201,7 @@
           this._pointIndex = -1;
           this._startPoint = null;
           this._hasInserted = false;
-          go.Tool.prototype.stopTool.call(this);
+          go.Tool.prototype.stopTool.call(this); // 恢复 Diagram 状态，允许继续拖节点等操作
         }
         testInsertPoint(link, point) {
           const seg = link.findClosestSegment(point);
@@ -325,10 +331,11 @@
         ParallelRouteLink,
         {
           routing: go.Link.Normal,
-          reshapable: true,
+          reshapable: true, // 允许调用 AnyPointReshapeTool 修改折点
+          adjusting: go.LinkAdjusting.End, // 移动节点时保持用户创建的折点，只调整两端
         },
         new go.Binding("curviness"),
-        new go.Binding("points").makeTwoWay(),
+        new go.Binding("points").makeTwoWay(), // 折点写回模型，确保刷新或撤销后仍能保留折线形状
         $(
           go.Shape,
           { strokeWidth: 2, stroke: "black" },
