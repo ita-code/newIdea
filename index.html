@@ -83,9 +83,13 @@
           this._pointIndex = -1; // 插入的折点索引
           this._originalPoints = null; // 原始 points，用于撤销或取消
           this._indicator = null; // 拖动提示圆点（添加到 Tool 图层）
+          this._skipInsert = false; // 抑制本次插入（比如拖动距离不足或距离已有折点/端点过近）
           this._startPoint = null; // 鼠标按下时的位置
           this._hasInserted = false; // 是否已真正插入折点
           this._dragThresholdSq = 64; // 触发折点插入的最小距离平方（8px 的平方）
+          this._minBendSpacingSq = 400; // 折点之间的最小距离平方（20px）：拖动距离不足 8px 或离现有折点 <20px 时不新增折点，避免误触和折点堆叠
+          this._minEndpointSpacingSq = 900; // 折点距端点的最小距离平方（30px）：靠近端点拖动时不新建折点，避免节点附近产生冗余折点
+          this._lastInserted = null; // 记录最近一次插入的折点，便于后续进一步扩展（保留字段）
         }
         canStart() {
           const diagram = this.diagram;
@@ -109,23 +113,82 @@
           this._startPoint = start;
           this._pointIndex = -1;
           this._indicator = null;
+          this._skipInsert = false;
           this._hasInserted = false;
+          this._lastInserted = null; // 新一轮拖动前清理历史记录（保留字段）
           diagram.currentCursor = "grabbing"; // 告知用户当前可拖动
           diagram.isMouseCaptured = true; // 捕获鼠标，后续 move/up 事件都分发给此工具
           this.isActive = true;
         }
         _ensureInserted(targetPoint) {
-          if (this._hasInserted) return true;
+          if (this._hasInserted || this._skipInsert) return true;
           const diagram = this.diagram;
           const link = this._adornedLink;
           if (!diagram || !link) return false;
           this.startTransaction(this.name);
           const pts = link.points.copy();
           const seg = link.findClosestSegment(targetPoint);
-          this._pointIndex = seg + 1;
-          pts.insertAt(this._pointIndex, targetPoint.copy()); // 在最近线段中插入折点
+          let insertPoint = targetPoint.copy();
+          let insertIndex = seg + 1;
+
+          // 若拖动位置靠近现有折点，则直接复用该折点的索引，允许再次调整
+          let reusingExisting = false;
+          for (let i = 1; i < link.pointsCount - 1; i++) {
+            const existing = link.getPoint(i);
+            if (
+              existing &&
+              existing.distanceSquaredPoint(targetPoint) < this._minBendSpacingSq
+            ) {
+              reusingExisting = true;
+              insertIndex = i;
+              insertPoint = existing.copy();
+              break;
+            }
+          }
+
+          // 若与端点距离过近，跳过插入，避免节点附近出现冗余折点
+          const first = link.getPoint(0);
+          const last = link.getPoint(link.pointsCount - 1);
+          if (
+            (first &&
+              first.distanceSquaredPoint(targetPoint) <
+                this._minEndpointSpacingSq) ||
+            (last &&
+              last.distanceSquaredPoint(targetPoint) <
+                this._minEndpointSpacingSq)
+          ) {
+            this._skipInsert = true;
+            if (this._indicator && diagram) diagram.remove(this._indicator);
+            this._indicator = null;
+            this._pointIndex = -1;
+            this.stopTransaction();
+            return false;
+          }
+
+          if (!reusingExisting) {
+            // 若附近已存在折点，避免重复添加（包含新旧折点）
+            for (let i = 1; i < link.pointsCount - 1; i++) {
+              const existing = link.getPoint(i);
+              if (
+                existing &&
+                existing.distanceSquaredPoint(targetPoint) < this._minBendSpacingSq
+              ) {
+                // 记录本次应跳过，释放时复原
+                this._skipInsert = true;
+                if (this._indicator && diagram) diagram.remove(this._indicator);
+                this._indicator = null;
+                this._pointIndex = -1;
+                this.stopTransaction();
+                return false;
+              }
+            }
+            pts.insertAt(insertIndex, insertPoint);
+          }
+
+          this._pointIndex = insertIndex;
           link.points = pts;
           this._hasInserted = true;
+          this._lastInserted = { link, index: this._pointIndex }; // 保存当前折点信息（保留字段，可用于其它逻辑）
 
           // 构建浅蓝色提示圆点，视觉反馈当前折点位置
           const indicator = new go.Part("Spot", {
@@ -152,12 +215,13 @@
           const link = this._adornedLink;
           if (!link) return;
           const p = this.diagram.lastInput.documentPoint.copy(); // 实时跟踪鼠标位置
-          if (
-            !this._hasInserted &&
-            this._startPoint &&
-            p.distanceSquaredPoint(this._startPoint) >= this._dragThresholdSq
-          ) {
-            this._ensureInserted(p);
+          if (!this._hasInserted && this._startPoint) {
+            const distSq = p.distanceSquaredPoint(this._startPoint);
+            if (distSq >= this._dragThresholdSq) {
+              this._ensureInserted(p);
+            } else {
+              if (this._indicator) this._indicator.location = p;
+            }
           }
           if (!this._hasInserted || this._pointIndex < 0) {
             if (this._indicator) this._indicator.location = p; // 尚未插点时仅移动提示
@@ -201,6 +265,7 @@
           this._pointIndex = -1;
           this._startPoint = null;
           this._hasInserted = false;
+          this._skipInsert = false;
           go.Tool.prototype.stopTool.call(this); // 恢复 Diagram 状态，允许继续拖节点等操作
         }
         testInsertPoint(link, point) {
