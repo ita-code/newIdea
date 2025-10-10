@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>电力系统图 GoJS (V13 - 任意点折线)</title>
+    <title>电力系统图 GoJS (V15 - 官方折线工具)</title>
     <meta
       name="description"
-      content="实现平行直线效果，并允许用户在任意点位点击拖拽，为线路添加弯折"
+      content="集成官方 LinkReshapingTool，实现最流畅的“任意点弯折”交互"
     />
     <meta charset="utf-8" />
     <style>
@@ -16,14 +16,14 @@
     </style>
   </head>
   <body>
-    <h1>电力系统图 GoJS (V13 - 任意点折线)</h1>
+    <h1>电力系统图 GoJS (V15 - 官方折线工具)</h1>
     <p>
-      最终方案：默认平行直线，并支持在<b>任意点位</b>点击拖拽线路，为其添加自定义折点。
+      最终方案：默认平行直线。<b>将鼠标悬停在线路上</b>，拖拽出现的中点手柄即可流畅添加折点。
     </p>
     <div id="myDiagramDiv"></div>
     <script src="https://unpkg.com/gojs/release/go.js"></script>
     <script>
-      // ### 最终版的 ParallelRouteLink 定义 (无变化) ###
+      // ### 智能的 ParallelRouteLink 定义 (无变化) ###
       class ParallelRouteLink extends go.Link {
         constructor(init) {
           super();
@@ -69,70 +69,186 @@
         }
       }
 
-      // ### 新增: 自定义工具，用于在任意点位为线路添加折点 ###
-      class LinkBendingTool extends go.Tool {
+      // ### 引入官方 LinkReshapingTool (已修正) ###
+      class LinkReshapingTool extends go.Tool {
         constructor(init) {
           super();
-          this.name = "LinkBending";
+          this.name = "LinkReshaping";
+          this._handleArchetype = new go.Shape({
+            fill: "lightblue",
+            stroke: "dodgerblue",
+            strokeWidth: 2,
+            desiredSize: new go.Size(8, 8),
+          });
+          this._midHandleArchetype = new go.Shape({
+            fill: "lightblue",
+            stroke: "dodgerblue",
+            strokeWidth: 2,
+            desiredSize: new go.Size(7, 7),
+            cursor: "move",
+          });
+          this._adornmentTemplate = new go.Adornment("Link");
+          this._handle = null;
+          this._adornedLink = null;
+          this._originalPoints = null;
           if (init) Object.assign(this, init);
         }
-
+        get handleArchetype() {
+          return this._handleArchetype;
+        }
+        set handleArchetype(value) {
+          this._handleArchetype = value;
+        }
+        get midHandleArchetype() {
+          return this._midHandleArchetype;
+        }
+        set midHandleArchetype(value) {
+          this._midHandleArchetype = value;
+        }
+        get adornmentTemplate() {
+          return this._adornmentTemplate;
+        }
+        set adornmentTemplate(value) {
+          this._adornmentTemplate = value;
+        }
+        makeAdornment(link) {
+          const ad = this.adornmentTemplate.copy();
+          ad.adornedObject = link;
+          if (this.handleArchetype) {
+            for (let i = 0; i < link.pointsCount; i++) {
+              const h = this.handleArchetype.copy();
+              h.pointIndex = i;
+              ad.add(h);
+            }
+          }
+          if (this.midHandleArchetype) {
+            for (let i = 0; i < link.pointsCount - 1; i++) {
+              const h = this.midHandleArchetype.copy();
+              h.segmentIndex = i;
+              ad.add(h);
+            }
+          }
+          // ad.category = 'Reshaping'; // <-- 错误的代码已被移除
+          return ad;
+        }
+        updateAdornments(part) {
+          if (!(part instanceof go.Link)) return;
+          const link = part;
+          if (link.isSelected && !this.diagram.isReadOnly) {
+            const ad =
+              link.findAdornment(this.name) || this.makeAdornment(link);
+            if (ad) {
+              ad.location = link.routeBounds.position;
+              link.addAdornment(this.name, ad);
+            }
+          } else {
+            link.removeAdornment(this.name);
+          }
+        }
         canStart() {
           if (!this.isEnabled) return false;
           const diagram = this.diagram;
-          if (diagram.isReadOnly || diagram.isModelReadOnly) return false;
+          if (diagram.isReadOnly) return false;
           if (!diagram.lastInput.left) return false;
-          const link = diagram.findPartAt(
+          const h = this.findToolHandleAt(
             diagram.firstInput.documentPoint,
-            false
+            this.name
           );
-          if (!(link instanceof go.Link) || !link.canReshape()) return false;
-
-          // --- FIX START ---
-          // 检查鼠标是否在现有的工具手柄上（这些手柄是 Adornment 的一部分）
-          // 旧代码: if (diagram.findToolHandleAt(diagram.firstInput.documentPoint, null) !== null) return false; // 这是错误的调用
-          // 正确的逻辑:
-          const obj = diagram.findObjectAt(
-            diagram.firstInput.documentPoint,
-            null,
-            (o) => o.part instanceof go.Adornment
-          );
-          if (obj) return false; // 如果鼠标在任何手柄上，则不允许启动此工具
-          // --- FIX END ---
-
-          return true;
+          return h !== null || this.isBeyondDragSize();
         }
-
         doActivate() {
           const diagram = this.diagram;
-          const link = diagram.findPartAt(
+          const h = this.findToolHandleAt(
             diagram.firstInput.documentPoint,
-            false
+            this.name
           );
-          if (!(link instanceof go.Link)) return;
-          const points = link.points.copy();
-          const nearPoint = diagram.firstInput.documentPoint;
-          const segmentIndex = link.findClosestSegment(nearPoint);
-          points.insertAt(segmentIndex + 1, nearPoint);
-          this.startTransaction(this.name);
-          link.points = points;
-          link.isSelected = true;
-          link.updateAdornments();
-          const reshapingTool = diagram.toolManager.reshapingTool;
-          if (reshapingTool) {
-            const adornment = link.findAdornment("Reshaping");
-            if (adornment) {
-              const handle = adornment.findToolHandleAt(nearPoint, null);
-              if (handle) {
-                reshapingTool.handle = handle;
-                reshapingTool.adornedLink = link;
-                diagram.currentTool = reshapingTool;
-                reshapingTool.doActivate();
-              }
+          if (h) {
+            const link = h.part.adornedObject;
+            if (link) {
+              this._adornedLink = link;
+              this._handle = h;
+              this._originalPoints = link.points.copy();
+              this.startTransaction(this.name);
+              diagram.isMouseCaptured = true;
+              this.isActive = true;
+            }
+          } else {
+            const link = diagram.findPartAt(
+              diagram.lastInput.documentPoint,
+              false
+            );
+            if (
+              link instanceof go.Link &&
+              link.canReshape() &&
+              link.pointsCount > 1
+            ) {
+              this._adornedLink = link;
+              const points = link.points.copy();
+              const first = diagram.firstInput.documentPoint;
+              const idx = link.findClosestSegment(first) + 1;
+              points.insertAt(idx, first);
+              link.points = points;
+              this._originalPoints = points;
+              const ad = this.makeAdornment(link);
+              link.addAdornment(this.name, ad);
+              this._handle = ad.findObjectAt(
+                first,
+                null,
+                (x) => x.pointIndex === idx
+              );
+              this.startTransaction(this.name);
+              diagram.isMouseCaptured = true;
+              this.isActive = true;
             }
           }
-          this.transactionResult = this.name;
+        }
+        doDeactivate() {
           this.isActive = false;
+          this.diagram.isMouseCaptured = false;
+          this.stopTransaction();
+          this._handle = null;
+          this._adornedLink = null;
+          this._originalPoints = null;
+        }
+        doCancel() {
+          if (this._originalPoints) {
+            this._adornedLink.points = this._originalPoints;
+          }
+          this.stopTool();
+        }
+        doMouseMove() {
+          if (this.isActive) {
+            const newpt = this.computeReshape(
+              this.diagram.lastInput.documentPoint
+            );
+            this.reshape(newpt);
+          }
+        }
+        doMouseUp() {
+          if (this.isActive) {
+            const newpt = this.computeReshape(
+              this.diagram.lastInput.documentPoint
+            );
+            this.reshape(newpt);
+            this.transactionResult = this.name;
+          }
+          this.stopTool();
+        }
+        reshape(newPoint) {
+          const link = this._adornedLink;
+          const h = this._handle;
+          const points = link.points.copy();
+          if (typeof h.pointIndex === "number") {
+            points.setPoint(h.pointIndex, newPoint);
+          } else if (typeof h.segmentIndex === "number") {
+            points.insertAt(h.segmentIndex + 1, newPoint);
+            h.pointIndex = h.segmentIndex + 1;
+            delete h.segmentIndex;
+          }
+          link.points = points;
+        }
+        computeReshape(newPoint) {
+          return newPoint;
         }
       }
       // --------------------------------------------------------------------------------
@@ -145,8 +261,8 @@
         "toolManager.mouseWheelBehavior": go.ToolManager.WheelZoom,
       });
 
-      // ### 激活新的自定义工具 ###
-      myDiagram.toolManager.mouseDownTools.add(new LinkBendingTool());
+      // ### 步骤 2: 激活官方的 LinkReshapingTool ###
+      myDiagram.toolManager.reshapingTool = new LinkReshapingTool();
 
       // 节点模板 (无变化)
       myDiagram.nodeTemplate = $(
@@ -251,8 +367,7 @@
       myDiagram.linkTemplate = $(
         ParallelRouteLink,
         {
-          resegmentable: true,
-          reshapable: true,
+          reshapable: true, // 必须为 true，让新工具可以工作
           routing: go.Link.Normal,
         },
         new go.Binding("curviness"),
@@ -260,7 +375,7 @@
           go.Shape,
           { strokeWidth: 2, stroke: "black" },
           new go.Binding("stroke", "color")
-        ), // default stroke to black
+        ),
         $(
           go.TextBlock,
           {
