@@ -1,38 +1,76 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>电力系统图 GoJS（任意点弯折 + 拖动提示）</title>
+    <title>电力系统图 GoJS（任意点弯折 + 保存机制）</title>
     <meta
       name="description"
-      content="定制 AnyPointReshapeTool，实现悬停可拖、带提示圆点、防抖的 GoJS 连线折线交互"
+      content="最终版：实现了平行直线、任意点弯折、并增加了保存和加载布局的功能"
     />
     <meta charset="utf-8" />
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
       #myDiagramDiv {
         border: 1px solid black;
         width: 100%;
-        height: 800px;
+        height: 80vh; /* 为按钮留出空间 */
       }
     </style>
   </head>
-  <body>
-    <h1>电力系统图 GoJS（任意点弯折 + 拖动提示）</h1>
-    <p>
-      最终方案：默认平行直线。<b>将鼠标悬停在线路上</b>，按住左键稍微拖动即可出现提示圆点并生成折点，松开后折点保留、提示消失。
-    </p>
+  <body class="p-4 font-sans">
+    <div class="flex flex-col items-center mb-4">
+      <h1 class="text-2xl font-bold mb-2">
+        电力系统图 GoJS（带注释和保存功能）
+      </h1>
+      <p class="text-sm text-gray-600 mb-2">
+        最终方案：默认平行直线。<b>在任意点位</b>按住并拖拽线路，即可为其添加自定义折点。
+      </p>
+      <!-- 新增：保存和加载功能的按钮 -->
+      <div class="flex space-x-4">
+        <button
+          id="saveButton"
+          class="px-4 py-2 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 transition-colors duration-300"
+        >
+          💾 保存布局
+        </button>
+        <button
+          id="loadButton"
+          class="px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 transition-colors duration-300"
+        >
+          📂 加载布局
+        </button>
+        <button
+          id="resetButton"
+          class="px-4 py-2 bg-red-600 text-white font-semibold rounded-lg shadow-md hover:bg-red-700 transition-colors duration-300"
+        >
+          🔄 重置布局
+        </button>
+      </div>
+      <p id="feedback" class="text-sm text-green-500 mt-2 h-4"></p>
+      <!-- 用于向用户提供反馈信息 -->
+    </div>
+
     <div id="myDiagramDiv"></div>
+
     <script src="https://unpkg.com/gojs/release/go.js"></script>
     <script>
-      // ### 智能的 ParallelRouteLink 定义 (无变化) ###
+      // =================================================================================
+      // ### 核心扩展 1: 智能平行线路类 (ParallelRouteLink) ###
+      // 功能：
+      // 1. 默认情况下（线路只有起点和终点），它会根据 curviness 值计算出一条平行的直线。
+      // 2. 当用户手动为线路增加了折点后 (pointsCount > 2)，它会自动“放权”，
+      //    不再进行平行计算，而是完全保留用户自定义的折线形状。
+      // =================================================================================
       class ParallelRouteLink extends go.Link {
         constructor(init) {
           super();
           if (init) Object.assign(this, init);
         }
         computePoints() {
+          // 如果用户已经添加了折点，就调用 GoJS 的默认方法来绘制折线
           if (this.pointsCount > 2) {
             return super.computePoints();
           }
+          // 否则，执行我们的平行直线计算逻辑
           const result = super.computePoints();
           if (
             this.isOrthogonal ||
@@ -50,6 +88,7 @@
           const topt = this.getPoint(this.pointsCount - 1);
           const dx = topt.x - frompt.x;
           const dy = topt.y - frompt.y;
+          // 计算垂直向量并施加偏移
           const perpendicular = new go.Point(-dy, dx);
           perpendicular.normalize();
           perpendicular.x *= curv;
@@ -69,62 +108,63 @@
         }
       }
 
-      // ### 任意点弯折工具：带拖动提示 + 防抖 ###
-      // 集成功能回顾：
-      //   • 自定义折线：在线段任意位置按住并拖动即可插入折点，光标变为“抓手”并出现半透明提示圆点。
-      //   • 防抖阈值：拖动距离 < 8px 时不插入折点，避免误触。
-      //   • 折点间距控制：
-      //       - 新折点与已有折点 < 20px 或与端点 < 30px 时自动跳过，保持折点稀疏且远离节点。
-      //       - 当拖动位置贴近现有折点时复用该折点，可继续调整历史折角，而不会生成重复折点。
-      //   • 折点提示：拖动过程中浅蓝色圆点随鼠标移动，确认正在编辑的折点位置。
-      //   • 自动回直：释放鼠标后检测折点与前后端连线的垂距（≤8px）或夹角（≥165°）；若几乎是直线则自动删除折点。
-      //   • 恢复默认交互：未插入折点时自动选中该连线，继续支持常规单击选择和右键菜单。
+      // =================================================================================
+      // ### 核心扩展 2: 任意点弯折工具 (AnyPointReshapeTool) ###
+      // 这是您提供的最新版本，包含了更完整的逻辑和优化策略。
+      // =================================================================================
       class AnyPointReshapeTool extends go.Tool {
         constructor() {
           super();
           this.name = "AnyPointReshape";
-          this._adornedLink = null; // 当前正在操作的连线引用
-          this._pointIndex = -1; // 插入的折点索引
-          this._originalPoints = null; // 原始 points，用于撤销或取消
-          this._indicator = null; // 拖动提示圆点（添加到 Tool 图层）
-          this._skipInsert = false; // 抑制本次插入（比如拖动距离不足或距离已有折点/端点过近）
-          this._startPoint = null; // 鼠标按下时的位置
-          this._hasInserted = false; // 是否已真正插入折点
-          this._dragThresholdSq = 64; // 触发折点插入的最小距离平方（8px 的平方）
-          this._minBendSpacingSq = 400; // 折点之间的最小距离平方（20px）：拖动距离不足 8px 或离现有折点 <20px 时不新增折点，避免误触和折点堆叠
-          this._minEndpointSpacingSq = 900; // 折点距端点的最小距离平方（30px）：靠近端点拖动时不新建折点，避免节点附近产生冗余折点
-          this._straighteningTolerance = 8; // 折点对齐阈值（像素）：折点距前后端连线的垂距 <= 8px 时检测为“近乎直线”，自动去除折点
-          this._lastInserted = null; // 记录最近一次插入的折点，便于后续进一步扩展（保留字段）
+          this._adornedLink = null;
+          this._pointIndex = -1;
+          this._originalPoints = null;
+          this._indicator = null;
+          this._skipInsert = false;
+          this._startPoint = null;
+          this._hasInserted = false;
+          this._dragThresholdSq = 64; // 8px 的平方：用于“拖动防抖”
+          this._minBendSpacingSq = 400; // 20px 的平方：折点之间的最小间距
+          this._minEndpointSpacingSq = 900; // 30px 的平方：折点距离端点的最小间距
+          this._straighteningTolerance = 8; // 垂距容差：折点距离直线 ≤ 8px 判定为近乎直线
+          this._lastInserted = null;
         }
+
         canStart() {
           const diagram = this.diagram;
           if (!diagram || diagram.isReadOnly) return false;
-          const input = diagram.firstInput; // 首帧输入，用于判定是否左键
-          if (!input.left) return false; // 防止右键菜单或其它按键触发
+          const input = diagram.firstInput;
+          if (!input.left) return false; // 仅响应左键按下，避免与右键菜单冲突
           const part = diagram.findPartAt(input.documentPoint, true);
           return part instanceof go.Link && part.canReshape();
         }
+
         doActivate() {
           const diagram = this.diagram;
-          const start = diagram.firstInput.documentPoint.copy();
-          const link = diagram.findPartAt(start, true);
-          if (!(link instanceof go.Link)) {
+          if (!diagram) {
             this.doCancel();
             return;
           }
-          this._adornedLink = link;
-          link.isHighlighted = true;
-          this._originalPoints = link.points.copy();
+          const start = diagram.firstInput.documentPoint.copy();
+          const part = diagram.findPartAt(start, true);
+          if (!(part instanceof go.Link)) {
+            this.doCancel();
+            return;
+          }
+          this._adornedLink = part;
+          part.isHighlighted = true;
+          this._originalPoints = part.points.copy();
           this._startPoint = start;
           this._pointIndex = -1;
           this._indicator = null;
           this._skipInsert = false;
           this._hasInserted = false;
-          this._lastInserted = null; // 新一轮拖动前清理历史记录（保留字段）
-          diagram.currentCursor = "grabbing"; // 告知用户当前可拖动
-          diagram.isMouseCaptured = true; // 捕获鼠标，后续 move/up 事件都分发给此工具
+          this._lastInserted = null;
+          diagram.currentCursor = "grabbing";
+          diagram.isMouseCaptured = true;
           this.isActive = true;
         }
+
         _ensureInserted(targetPoint) {
           if (this._hasInserted || this._skipInsert) return true;
           const diagram = this.diagram;
@@ -135,14 +175,13 @@
           const seg = link.findClosestSegment(targetPoint);
           let insertPoint = targetPoint.copy();
           let insertIndex = seg + 1;
-
-          // 若拖动位置靠近现有折点，则直接复用该折点的索引，允许再次调整
           let reusingExisting = false;
           for (let i = 1; i < link.pointsCount - 1; i++) {
             const existing = link.getPoint(i);
             if (
               existing &&
-              existing.distanceSquaredPoint(targetPoint) < this._minBendSpacingSq
+              existing.distanceSquaredPoint(targetPoint) <
+                this._minBendSpacingSq
             ) {
               reusingExisting = true;
               insertIndex = i;
@@ -150,8 +189,6 @@
               break;
             }
           }
-
-          // 若与端点距离过近，跳过插入，避免节点附近出现冗余折点
           const first = link.getPoint(0);
           const last = link.getPoint(link.pointsCount - 1);
           if (
@@ -169,16 +206,14 @@
             this.stopTransaction();
             return false;
           }
-
           if (!reusingExisting) {
-            // 若附近已存在折点，避免重复添加（包含新旧折点）
             for (let i = 1; i < link.pointsCount - 1; i++) {
               const existing = link.getPoint(i);
               if (
                 existing &&
-                existing.distanceSquaredPoint(targetPoint) < this._minBendSpacingSq
+                existing.distanceSquaredPoint(targetPoint) <
+                  this._minBendSpacingSq
               ) {
-                // 记录本次应跳过，释放时复原
                 this._skipInsert = true;
                 if (this._indicator && diagram) diagram.remove(this._indicator);
                 this._indicator = null;
@@ -189,13 +224,10 @@
             }
             pts.insertAt(insertIndex, insertPoint);
           }
-
           this._pointIndex = insertIndex;
           link.points = pts;
           this._hasInserted = true;
-          this._lastInserted = { link, index: this._pointIndex }; // 保存当前折点信息（保留字段，可用于其它逻辑）
-
-          // 构建浅蓝色提示圆点，视觉反馈当前折点位置
+          this._lastInserted = { link, index: insertIndex };
           const indicator = new go.Part("Spot", {
             layerName: "Tool",
             locationSpot: go.Spot.Center,
@@ -215,30 +247,33 @@
           this._indicator = indicator;
           return true;
         }
+
         doMouseMove() {
           if (!this.isActive) return;
           const link = this._adornedLink;
-          if (!link) return;
-          const p = this.diagram.lastInput.documentPoint.copy(); // 实时跟踪鼠标位置
+          const diagram = this.diagram;
+          if (!link || !diagram) return;
+          const current = diagram.lastInput.documentPoint.copy();
           if (!this._hasInserted && this._startPoint) {
-            const distSq = p.distanceSquaredPoint(this._startPoint);
+            const distSq = current.distanceSquaredPoint(this._startPoint);
             if (distSq >= this._dragThresholdSq) {
-              this._ensureInserted(p);
-            } else {
-              if (this._indicator) this._indicator.location = p;
+              this._ensureInserted(current);
+            } else if (this._indicator) {
+              this._indicator.location = current;
             }
           }
           if (!this._hasInserted || this._pointIndex < 0) {
-            if (this._indicator) this._indicator.location = p; // 尚未插点时仅移动提示
+            if (this._indicator) this._indicator.location = current;
             return;
           }
           const pts = link.points.copy();
           if (this._pointIndex >= 0 && this._pointIndex < link.pointsCount) {
-            pts.set(this._pointIndex, p); // 更新折点位置，让折线跟随鼠标
-            link.points = pts; // 写回路线
+            pts.set(this._pointIndex, current);
+            link.points = pts;
           }
-          if (this._indicator) this._indicator.location = p;
+          if (this._indicator) this._indicator.location = current;
         }
+
         doMouseUp() {
           if (this.isActive && this._hasInserted) {
             this.transactionResult = this.name;
@@ -246,16 +281,18 @@
           const link = this._adornedLink;
           const diagram = this.diagram;
           if (link && !this._hasInserted && diagram) {
-            diagram.select(link); // 未插入折点时视为单击，保持原本的选中行为
+            diagram.select(link);
           }
-          this.stopTool(); // 交给 stopTool 做善后
+          this.stopTool();
         }
+
         doCancel() {
           if (this._adornedLink && this._originalPoints) {
             this._adornedLink.points = this._originalPoints;
           }
           this.stopTool();
         }
+
         stopTool() {
           const diagram = this.diagram;
           const link = this._adornedLink;
@@ -268,18 +305,20 @@
           this._indicator = null;
           if (this._hasInserted) {
             this.stopTransaction();
-            // 判断折点是否足够“直线”，是则移除折点保持干净线路
             this._autoSimplify(link);
           }
-          if (link) link.isHighlighted = false;
+          if (link) {
+            link.isHighlighted = false;
+          }
           this._adornedLink = null;
           this._originalPoints = null;
           this._pointIndex = -1;
           this._startPoint = null;
           this._hasInserted = false;
           this._skipInsert = false;
-          go.Tool.prototype.stopTool.call(this); // 恢复 Diagram 状态，允许继续拖节点等操作
+          super.stopTool();
         }
+
         _autoSimplify(link) {
           if (!link || typeof this._pointIndex !== "number") return;
           const idx = this._pointIndex;
@@ -290,7 +329,6 @@
           const curr = pts.get(idx);
           const next = pts.get(idx + 1);
           if (!prev || !curr || !next) return;
-
           const a2 = prev.distanceSquaredPoint(curr);
           const b2 = curr.distanceSquaredPoint(next);
           const c2 = prev.distanceSquaredPoint(next);
@@ -303,7 +341,6 @@
             const b = Math.sqrt(b2);
             const segLength = Math.sqrt(c2);
             if (segLength > 0) {
-              // 计算 curr 到前后端连线的垂直距离
               const area =
                 Math.abs(
                   (curr.x - prev.x) * (next.y - prev.y) -
@@ -313,7 +350,6 @@
                 pts.removeAt(idx);
                 removed = true;
               } else {
-                // 兜底：使用角度判断，避免浅角度残留
                 const cosAngle = (a2 + b2 - c2) / (2 * a * b);
                 const clamped = Math.min(1, Math.max(-1, cosAngle));
                 const degrees = Math.acos(clamped) * (180 / Math.PI);
@@ -329,17 +365,11 @@
             if (diagram) diagram.startTransaction("auto simplify");
             link.points = pts;
             if (diagram) diagram.commitTransaction("auto simplify");
+            this._lastInserted = null;
           }
         }
-        testInsertPoint(link, point) {
-          const seg = link.findClosestSegment(point);
-          const pts = link.points.copy();
-          pts.insertAt(seg + 1, point);
-          link.points = pts;
-          return seg + 1;
-        }
       }
-      // --------------------------------------------------------------------------------
+      // =================================================================================
 
       const $ = go.GraphObject.make;
 
@@ -349,7 +379,7 @@
         "toolManager.mouseWheelBehavior": go.ToolManager.WheelZoom,
       });
 
-      // ### 安装任意点弯折工具（优先于其他鼠标按下工具） ###
+      // ### 安装我们的终极自定义工具 ###
       myDiagram.toolManager.mouseDownTools.insertAt(
         0,
         new AnyPointReshapeTool()
@@ -454,16 +484,16 @@
         )
       );
 
-      // 链接模板 (无变化)
+      // 链接模板: 增加了 points 的双向绑定，以保存用户的折线修改
       myDiagram.linkTemplate = $(
         ParallelRouteLink,
         {
           routing: go.Link.Normal,
-          reshapable: true, // 允许调用 AnyPointReshapeTool 修改折点
-          adjusting: go.LinkAdjusting.End, // 移动节点时保持用户创建的折点，只调整两端
+          reshapable: true, // 允许我们的自定义工具修改它
+          adjusting: go.LinkAdjusting.End, // 拖动节点时，尽量保持用户创建的折点
         },
         new go.Binding("curviness"),
-        new go.Binding("points").makeTwoWay(), // 折点写回模型，确保刷新或撤销后仍能保留折线形状
+        new go.Binding("points").makeTwoWay(), // **关键**：将折点数据写回模型，以便保存
         $(
           go.Shape,
           { strokeWidth: 2, stroke: "black" },
@@ -501,7 +531,8 @@
         }
       }
 
-      const nodeDataArray = [
+      // 原始数据
+      const originalNodeData = [
         { key: "平寨站", l: "-168.1", loc: "0 50" },
         { key: "黎阳站", l: "-198.2", loc: "150 0" },
         { key: "新塘站", l: "-66.1", color: "red", loc: "300 50" },
@@ -538,7 +569,6 @@
         { key: "佳城站", l: "0.2", loc: "750 50" },
         { key: "甲拉站", l: "121.4", loc: "900 450" },
         { key: "新塘站-分接", l: "-422.5", color: "red", loc: "450 20" },
-        // --- 4/5号线扩展节点 ---
         { key: "白溪站", l: "-95.2", loc: "900 150" },
         {
           key: "金泉电厂",
@@ -552,8 +582,7 @@
         { key: "谷峰站", l: "-141.8", loc: "1200 360" },
         { key: "双南站", l: "68.0", loc: "1200 520" },
       ];
-
-      const linkDataArray = [
+      const originalLinkData = [
         {
           from: "平寨站",
           to: "黎阳站",
@@ -590,12 +619,27 @@
           label: "0.7300-j8.4820",
           color: "#ff0000",
         },
+
+        // --- 增加三回线示例 ---
         {
           from: "岩头寨",
           to: "草鞋坳",
           label: "0.7810-j8.9540",
           color: "#009900",
         },
+        {
+          from: "岩头寨",
+          to: "草鞋坳",
+          label: "0.7810-j8.9540",
+          color: "#009900",
+        },
+        {
+          from: "岩头寨",
+          to: "草鞋坳",
+          label: "0.7810-j8.9540",
+          color: "#009900",
+        },
+
         {
           from: "岩头寨",
           to: "优的站",
@@ -656,12 +700,33 @@
           label: "0.8820+j1.0200",
           color: "#009900",
         },
+
+        // --- 增加四回线示例 ---
         {
           from: "西凉站",
           to: "安民电厂",
           label: "0.6690+j4.3650",
           color: "#009900",
         },
+        {
+          from: "西凉站",
+          to: "安民电厂",
+          label: "0.6690+j4.3650",
+          color: "#009900",
+        },
+        {
+          from: "西凉站",
+          to: "安民电厂",
+          label: "0.6690+j4.3650",
+          color: "#009900",
+        },
+        {
+          from: "西凉站",
+          to: "安民电厂",
+          label: "0.6690+j4.3650",
+          color: "#009900",
+        },
+
         {
           from: "安民电厂",
           to: "得佑站",
@@ -698,12 +763,27 @@
           label: "0.7670+j5.6970",
           color: "#009900",
         },
+
+        // --- 增加另一组三回线示例 ---
         {
           from: "功德站",
           to: "平朝站",
           label: "0.8410+j1.066",
           color: "#009900",
         },
+        {
+          from: "功德站",
+          to: "平朝站",
+          label: "0.8410+j1.066",
+          color: "#009900",
+        },
+        {
+          from: "功德站",
+          to: "平朝站",
+          label: "0.8410+j1.066",
+          color: "#009900",
+        },
+
         {
           from: "平朝站",
           to: "上洞站",
@@ -758,7 +838,6 @@
           label: "3.9860+j12.4840",
           color: "#009900",
         },
-        // --- 4/5号线扩展线路 ---
         {
           from: "佳城站",
           to: "白溪站",
@@ -833,9 +912,64 @@
         },
       ];
 
-      assignCurviness(linkDataArray);
+      // =================================================================================
+      // ### 新增: 保存与加载功能 ###
+      // =================================================================================
+      const feedback = document.getElementById("feedback");
 
-      myDiagram.model = new go.GraphLinksModel(nodeDataArray, linkDataArray);
+      function saveDiagram() {
+        const json = myDiagram.model.toJson();
+        localStorage.setItem("powerGridDiagramData", json);
+        feedback.textContent = "✅ 布局已成功保存！";
+        setTimeout(() => (feedback.textContent = ""), 2000);
+      }
+
+      function loadDiagram() {
+        const json = localStorage.getItem("powerGridDiagramData");
+        if (json) {
+          myDiagram.model = go.Model.fromJson(JSON.parse(json));
+          feedback.textContent = "✅ 已加载上次保存的布局。";
+          setTimeout(() => (feedback.textContent = ""), 2000);
+        } else {
+          feedback.textContent = "ℹ️ 未找到已保存的布局。";
+          setTimeout(() => (feedback.textContent = ""), 2000);
+        }
+      }
+
+      function resetDiagram() {
+        if (confirm("您确定要重置布局吗？所有未保存的修改都将丢失。")) {
+          localStorage.removeItem("powerGridDiagramData");
+          const nodeDataCopy = JSON.parse(JSON.stringify(originalNodeData));
+          const linkDataCopy = JSON.parse(JSON.stringify(originalLinkData));
+          assignCurviness(linkDataCopy);
+          myDiagram.model = new go.GraphLinksModel(nodeDataCopy, linkDataCopy);
+          feedback.textContent = "🔄 布局已重置为默认状态。";
+          setTimeout(() => (feedback.textContent = ""), 2000);
+        }
+      }
+
+      document.addEventListener("DOMContentLoaded", () => {
+        document
+          .getElementById("saveButton")
+          .addEventListener("click", saveDiagram);
+        document
+          .getElementById("loadButton")
+          .addEventListener("click", loadDiagram);
+        document
+          .getElementById("resetButton")
+          .addEventListener("click", resetDiagram);
+
+        const savedJson = localStorage.getItem("powerGridDiagramData");
+        if (savedJson) {
+          myDiagram.model = go.Model.fromJson(JSON.parse(savedJson));
+        } else {
+          const nodeDataCopy = JSON.parse(JSON.stringify(originalNodeData));
+          const linkDataCopy = JSON.parse(JSON.stringify(originalLinkData));
+          assignCurviness(linkDataCopy);
+          myDiagram.model = new go.GraphLinksModel(nodeDataCopy, linkDataCopy);
+        }
+      });
+      // =================================================================================
     </script>
   </body>
 </html>
