@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>电力系统图 GoJS（优化端口定位）</title>
+    <meta
+      name="description"
+      content="通过在节点上预定义多个静态的 port，并为平行线分配不同的 portId，来实现平行线效果。"
+    />
+    <meta charset="utf-8" />
+    <style>
+      #myDiagramDiv {
+        border: 1px solid black;
+        width: 100%;
+        height: 800px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>电力系统图 GoJS（优化端口定位）</h1>
+    <p>
+      <b>方案三（已优化）：</b
+      >根据您的建议，端口位置已从节点的外接矩形边界优化到实际的圆周上，实现了更美观、更精确的平行线连接。
+    </p>
+    <div id="myDiagramDiv"></div>
+    <script src="https://unpkg.com/gojs/release/go.js"></script>
+    <script>
+      // ### 任意点弯折工具：带拖动提示 + 防抖 (无变化) ###
+      class AnyPointReshapeTool extends go.Tool {
+        constructor() {
+          super();
+          this.name = "AnyPointReshape";
+          this._adornedLink = null;
+          this._pointIndex = -1;
+          this._originalPoints = null;
+          this._indicator = null;
+          this._skipInsert = false;
+          this._startPoint = null;
+          this._hasInserted = false;
+          this._dragThresholdSq = 64; // 8*8
+          this._minBendSpacingSq = 400; // 20*20
+          this._minEndpointSpacingSq = 900; // 30*30
+          this._straighteningTolerance = 8;
+          this._lastInserted = null;
+        }
+        canStart() {
+          const diagram = this.diagram;
+          if (!diagram || diagram.isReadOnly) return false;
+          const input = diagram.firstInput;
+          if (!input.left) return false;
+          const part = diagram.findPartAt(input.documentPoint, true);
+          return part instanceof go.Link && part.canReshape();
+        }
+        doActivate() {
+          const diagram = this.diagram;
+          const start = diagram.firstInput.documentPoint.copy();
+          const link = diagram.findPartAt(start, true);
+          if (!(link instanceof go.Link)) {
+            this.doCancel();
+            return;
+          }
+          this._adornedLink = link;
+          link.isHighlighted = true;
+          this._originalPoints = link.points.copy();
+          this._startPoint = start;
+          this._pointIndex = -1;
+          this._indicator = null;
+          this._skipInsert = false;
+          this._hasInserted = false;
+          this._lastInserted = null;
+          diagram.currentCursor = "grabbing";
+          diagram.isMouseCaptured = true;
+          this.isActive = true;
+        }
+        _ensureInserted(targetPoint) {
+          if (this._hasInserted || this._skipInsert) return true;
+          const diagram = this.diagram;
+          const link = this._adornedLink;
+          if (!diagram || !link) return false;
+          this.startTransaction(this.name);
+          const pts = link.points.copy();
+          const seg = link.findClosestSegment(targetPoint);
+          let insertPoint = targetPoint.copy();
+          let insertIndex = seg + 1;
+          let reusingExisting = false;
+          for (let i = 1; i < link.pointsCount - 1; i++) {
+            const existing = link.getPoint(i);
+            if (
+              existing &&
+              existing.distanceSquaredPoint(targetPoint) <
+                this._minBendSpacingSq
+            ) {
+              reusingExisting = true;
+              insertIndex = i;
+              insertPoint = existing.copy();
+              break;
+            }
+          }
+          const first = link.getPoint(0);
+          const last = link.getPoint(link.pointsCount - 1);
+          if (
+            (first &&
+              first.distanceSquaredPoint(targetPoint) <
+                this._minEndpointSpacingSq) ||
+            (last &&
+              last.distanceSquaredPoint(targetPoint) <
+                this._minEndpointSpacingSq)
+          ) {
+            this._skipInsert = true;
+            if (this._indicator && diagram) diagram.remove(this._indicator);
+            this._indicator = null;
+            this._pointIndex = -1;
+            this.stopTransaction();
+            return false;
+          }
+          if (!reusingExisting) {
+            for (let i = 1; i < link.pointsCount - 1; i++) {
+              const existing = link.getPoint(i);
+              if (
+                existing &&
+                existing.distanceSquaredPoint(targetPoint) <
+                  this._minBendSpacingSq
+              ) {
+                this._skipInsert = true;
+                if (this._indicator && diagram) diagram.remove(this._indicator);
+                this._indicator = null;
+                this._pointIndex = -1;
+                this.stopTransaction();
+                return false;
+              }
+            }
+            pts.insertAt(insertIndex, insertPoint);
+          }
+          this._pointIndex = insertIndex;
+          link.points = pts;
+          this._hasInserted = true;
+          this._lastInserted = { link, index: this._pointIndex };
+          const indicator = new go.Part("Spot", {
+            layerName: "Tool",
+            locationSpot: go.Spot.Center,
+            location: targetPoint.copy(),
+            selectable: false,
+            pickable: false,
+          });
+          indicator.add(
+            new go.Shape("Circle", {
+              desiredSize: new go.Size(12, 12),
+              fill: "rgba(30,144,255,0.15)",
+              stroke: "#1d4ed8",
+              strokeWidth: 1.5,
+            })
+          );
+          diagram.add(indicator);
+          this._indicator = indicator;
+          return true;
+        }
+        doMouseMove() {
+          if (!this.isActive) return;
+          const link = this._adornedLink;
+          if (!link) return;
+          const p = this.diagram.lastInput.documentPoint.copy();
+          if (!this._hasInserted && this._startPoint) {
+            const distSq = p.distanceSquaredPoint(this._startPoint);
+            if (distSq >= this._dragThresholdSq) {
+              this._ensureInserted(p);
+            } else {
+              if (this._indicator) this._indicator.location = p;
+            }
+          }
+          if (!this._hasInserted || this._pointIndex < 0) {
+            if (this._indicator) this._indicator.location = p;
+            return;
+          }
+          const pts = link.points.copy();
+          if (this._pointIndex >= 0 && this._pointIndex < link.pointsCount) {
+            pts.set(this._pointIndex, p);
+            link.points = pts;
+          }
+          if (this._indicator) this._indicator.location = p;
+        }
+        doMouseUp() {
+          if (this.isActive && this._hasInserted) {
+            this.transactionResult = this.name;
+          }
+          const link = this._adornedLink;
+          const diagram = this.diagram;
+          if (link && !this._hasInserted && diagram) {
+            diagram.select(link);
+          }
+          this.stopTool();
+        }
+        doCancel() {
+          if (this._adornedLink && this._originalPoints) {
+            this._adornedLink.points = this._originalPoints;
+          }
+          this.stopTool();
+        }
+        stopTool() {
+          const diagram = this.diagram;
+          const link = this._adornedLink;
+          if (diagram) {
+            diagram.currentCursor = "";
+          }
+          if (this._indicator && diagram) {
+            diagram.remove(this._indicator);
+          }
+          this._indicator = null;
+          if (this._hasInserted) {
+            this.stopTransaction();
+            this._autoSimplify(link);
+          }
+          if (link) link.isHighlighted = false;
+          this._adornedLink = null;
+          this._originalPoints = null;
+          this._pointIndex = -1;
+          this._startPoint = null;
+          this._hasInserted = false;
+          this._skipInsert = false;
+          go.Tool.prototype.stopTool.call(this);
+        }
+        _autoSimplify(link) {
+          if (!link || typeof this._pointIndex !== "number") return;
+          const idx = this._pointIndex;
+          if (idx <= 0 || idx >= link.pointsCount - 1) return;
+          const pts = link.points.copy();
+          if (idx >= pts.length) return;
+          const prev = pts.get(idx - 1);
+          const curr = pts.get(idx);
+          const next = pts.get(idx + 1);
+          if (!prev || !curr || !next) return;
+          const a2 = prev.distanceSquaredPoint(curr);
+          const b2 = curr.distanceSquaredPoint(next);
+          const c2 = prev.distanceSquaredPoint(next);
+          let removed = false;
+          if (a2 === 0 || b2 === 0) {
+            pts.removeAt(idx);
+            removed = true;
+          } else {
+            const a = Math.sqrt(a2);
+            const b = Math.sqrt(b2);
+            const segLength = Math.sqrt(c2);
+            if (segLength > 0) {
+              const area =
+                Math.abs(
+                  (curr.x - prev.x) * (next.y - prev.y) -
+                    (curr.y - prev.y) * (next.x - prev.x)
+                ) / segLength;
+              if (area <= this._straighteningTolerance) {
+                pts.removeAt(idx);
+                removed = true;
+              } else {
+                const cosAngle = (a2 + b2 - c2) / (2 * a * b);
+                const clamped = Math.min(1, Math.max(-1, cosAngle));
+                const degrees = Math.acos(clamped) * (180 / Math.PI);
+                if (degrees > 165) {
+                  pts.removeAt(idx);
+                  removed = true;
+                }
+              }
+            }
+          }
+          if (removed) {
+            const diagram = link.diagram;
+            if (diagram) diagram.startTransaction("auto simplify");
+            link.points = pts;
+            if (diagram) diagram.commitTransaction("auto simplify");
+          }
+        }
+        testInsertPoint(link, point) {
+          const seg = link.findClosestSegment(point);
+          const pts = link.points.copy();
+          pts.insertAt(seg + 1, point);
+          link.points = pts;
+          return seg + 1;
+        }
+      }
+      // --------------------------------------------------------------------------------
+
+      const $ = go.GraphObject.make;
+
+      const myDiagram = new go.Diagram("myDiagramDiv", {
+        "undoManager.isEnabled": true,
+        initialContentAlignment: go.Spot.Center,
+        "toolManager.mouseWheelBehavior": go.ToolManager.WheelZoom,
+      });
+
+      myDiagram.toolManager.mouseDownTools.insertAt(
+        0,
+        new AnyPointReshapeTool()
+      );
+
+      // ### 节点模板 (已修改) ###
+      // 为节点添加了8个不可见的端口
+      const commonNodeStyle = {
+        locationSpot: go.Spot.Center,
+        locationObjectName: "SHAPE",
+      };
+
+      myDiagram.nodeTemplate = $(
+        go.Node,
+        "Spot",
+        commonNodeStyle,
+        new go.Binding("location", "loc", go.Point.parse).makeTwoWay(
+          go.Point.stringify
+        ),
+        $(go.Shape, "Circle", {
+          name: "SHAPE",
+          width: 40,
+          height: 40,
+          fill: "white",
+          stroke: "#009900",
+          strokeWidth: 2,
+          portId: "", // 默认端口，连接到中心
+        }),
+        // -- 定义8个端口 (优化位置) --
+        // 根据您的建议，重新计算了Spot值，使端口精确位于圆周上，而非外接矩形上
+        // 计算逻辑: y_spot = (R - sqrt(R^2 - dx^2)) / (2*R)
+        // R=20, dx=10 => y_spot = (20 - sqrt(300)) / 40 ~= 0.067
+        $(go.Shape, "Circle", {
+          portId: "T1",
+          alignment: new go.Spot(0.25, 0.067),
+          fill: "transparent",
+          stroke: null,
+          desiredSize: new go.Size(8, 8),
+        }),
+        $(go.Shape, "Circle", {
+          portId: "T2",
+          alignment: new go.Spot(0.75, 0.067),
+          fill: "transparent",
+          stroke: null,
+          desiredSize: new go.Size(8, 8),
+        }),
+        $(go.Shape, "Circle", {
+          portId: "B1",
+          alignment: new go.Spot(0.25, 0.933),
+          fill: "transparent",
+          stroke: null,
+          desiredSize: new go.Size(8, 8),
+        }),
+        $(go.Shape, "Circle", {
+          portId: "B2",
+          alignment: new go.Spot(0.75, 0.933),
+          fill: "transparent",
+          stroke: null,
+          desiredSize: new go.Size(8, 8),
+        }),
+        $(go.Shape, "Circle", {
+          portId: "L1",
+          alignment: new go.Spot(0.067, 0.25),
+          fill: "transparent",
+          stroke: null,
+          desiredSize: new go.Size(8, 8),
+        }),
+        $(go.Shape, "Circle", {
+          portId: "L2",
+          alignment: new go.Spot(0.067, 0.75),
+          fill: "transparent",
+          stroke: null,
+          desiredSize: new go.Size(8, 8),
+        }),
+        $(go.Shape, "Circle", {
+          portId: "R1",
+          alignment: new go.Spot(0.933, 0.25),
+          fill: "transparent",
+          stroke: null,
+          desiredSize: new go.Size(8, 8),
+        }),
+        $(go.Shape, "Circle", {
+          portId: "R2",
+          alignment: new go.Spot(0.933, 0.75),
+          fill: "transparent",
+          stroke: null,
+          desiredSize: new go.Size(8, 8),
+        }),
+        // -- 文本部分 --
+        $(
+          go.Panel,
+          "Vertical",
+          { alignment: go.Spot.Center },
+          $(
+            go.TextBlock,
+            { font: "bold 11pt sans-serif" },
+            new go.Binding("text", "key")
+          ),
+          $(
+            go.TextBlock,
+            { font: "9pt sans-serif" },
+            new go.Binding("text", "voltage", (v) => (v ? `${v}` : ""))
+          ),
+          $(
+            go.TextBlock,
+            { font: "9pt sans-serif", stroke: "red" },
+            new go.Binding("text", "g", (g) => (g ? `G: ${g}` : ""))
+          ),
+          $(
+            go.TextBlock,
+            { font: "9pt sans-serif" },
+            new go.Binding("text", "l", (l) => (l ? `L: ${l}` : ""))
+          )
+        )
+      );
+
+      myDiagram.nodeTemplateMap.add(
+        "Generator",
+        $(
+          go.Node,
+          "Spot",
+          commonNodeStyle,
+          new go.Binding("location", "loc", go.Point.parse).makeTwoWay(
+            go.Point.stringify
+          ),
+          // -- 主体形状 --
+          $(
+            go.Panel,
+            "Spot",
+            $(go.Shape, "Circle", {
+              // 将矩形改为圆形
+              name: "SHAPE",
+              width: 40,
+              height: 40,
+              fill: "white",
+              stroke: "red", // 保留红色边框
+              strokeWidth: 2,
+              portId: "",
+            }),
+            $(go.Shape, {
+              // 保留内部波形，并微调大小
+              geometryString: "M0 15 C10 0, 20 30, 30 15",
+              stroke: "red",
+              strokeWidth: 1.5,
+              width: 25,
+              height: 12,
+              fill: null,
+            })
+          ),
+          // -- 使用与普通节点相同的圆形端口定义 --
+          $(go.Shape, "Circle", {
+            portId: "T1",
+            alignment: new go.Spot(0.25, 0.067),
+            fill: "transparent",
+            stroke: null,
+            desiredSize: new go.Size(8, 8),
+          }),
+          $(go.Shape, "Circle", {
+            portId: "T2",
+            alignment: new go.Spot(0.75, 0.067),
+            fill: "transparent",
+            stroke: null,
+            desiredSize: new go.Size(8, 8),
+          }),
+          $(go.Shape, "Circle", {
+            portId: "B1",
+            alignment: new go.Spot(0.25, 0.933),
+            fill: "transparent",
+            stroke: null,
+            desiredSize: new go.Size(8, 8),
+          }),
+          $(go.Shape, "Circle", {
+            portId: "B2",
+            alignment: new go.Spot(0.75, 0.933),
+            fill: "transparent",
+            stroke: null,
+            desiredSize: new go.Size(8, 8),
+          }),
+          $(go.Shape, "Circle", {
+            portId: "L1",
+            alignment: new go.Spot(0.067, 0.25),
+            fill: "transparent",
+            stroke: null,
+            desiredSize: new go.Size(8, 8),
+          }),
+          $(go.Shape, "Circle", {
+            portId: "L2",
+            alignment: new go.Spot(0.067, 0.75),
+            fill: "transparent",
+            stroke: null,
+            desiredSize: new go.Size(8, 8),
+          }),
+          $(go.Shape, "Circle", {
+            portId: "R1",
+            alignment: new go.Spot(0.933, 0.25),
+            fill: "transparent",
+            stroke: null,
+            desiredSize: new go.Size(8, 8),
+          }),
+          $(go.Shape, "Circle", {
+            portId: "R2",
+            alignment: new go.Spot(0.933, 0.75),
+            fill: "transparent",
+            stroke: null,
+            desiredSize: new go.Size(8, 8),
+          }),
+          // -- 文本部分 (保留红色字体) --
+          $(
+            go.Panel,
+            "Vertical",
+            { alignment: go.Spot.Center, margin: 4 },
+            $(
+              go.TextBlock,
+              { font: "bold 11pt sans-serif", stroke: "red" },
+              new go.Binding("text", "key")
+            ),
+            $(
+              go.TextBlock,
+              { font: "9pt sans-serif" },
+              new go.Binding("text", "voltage", (v) => (v ? `${v}` : ""))
+            ),
+            $(
+              go.TextBlock,
+              { font: "9pt sans-serif", stroke: "red" },
+              new go.Binding("text", "g", (g) => `G: ${g}`)
+            ),
+            $(
+              go.TextBlock,
+              { font: "9pt sans-serif" },
+              new go.Binding("text", "l", (l) => `L: ${l}`)
+            )
+          )
+        )
+      );
+
+      // ### 链接模板 (已修改) ###
+      // 绑定 fromPortId 和 toPortId
+      myDiagram.linkTemplate = $(
+        go.Link,
+        {
+          reshapable: true,
+          adjusting: go.LinkAdjusting.End,
+          layerName: "Background",
+        }, // 将连线置于背景层，确保节点在其上方
+        new go.Binding("fromPortId", "fromPort"),
+        new go.Binding("toPortId", "toPort"),
+        new go.Binding("points").makeTwoWay(),
+        $(
+          go.Shape,
+          { strokeWidth: 1.5, stroke: "black" },
+          new go.Binding("stroke", "color")
+        ), // 将线宽调小一点
+        $(
+          go.TextBlock,
+          {
+            segmentOffset: new go.Point(0, -10),
+            font: "9pt sans-serif",
+            background: "white",
+          },
+          new go.Binding("text", "label")
+        )
+      );
+
+      // ### 辅助函数：构建对称的端口序列 (新) ###
+      // 这个函数是解决您提出的非对称问题的关键
+      function buildSymmetricPortSequence(n, ports1, ports2) {
+        const sequence = [];
+        let p1idx = 0;
+        let p2idx = 0;
+
+        // 当平行线数量为奇数时，我们让第一条(逻辑上的中间)线使用默认的中心端口 ""
+        const useCenter = n % 2 !== 0;
+        let startIndex = 0;
+        if (useCenter) {
+          sequence.push(""); // "" 指向在节点模板中定义的默认中心端口
+          startIndex = 1;
+        }
+
+        // 剩余的线在两组端口(如 上/下 或 左/右)之间交替分配
+        for (let i = startIndex; i < n; i++) {
+          // 通过这个交替逻辑，确保线路从中心向两侧对称散开
+          if ((i - startIndex) % 2 === 0) {
+            sequence.push(ports1[p1idx % ports1.length]);
+            p1idx++;
+          } else {
+            sequence.push(ports2[p2idx % ports2.length]);
+            p2idx++;
+          }
+        }
+        return sequence;
+      }
+
+      // ### 辅助函数：为平行线分配端口ID (已重构) ###
+      function assignPorts(nodeDataArray, linkDataArray) {
+        const nodeMap = new Map(
+          nodeDataArray.map((n) => [n.key, go.Point.parse(n.loc)])
+        );
+        const linkGroups = new Map();
+
+        for (const link of linkDataArray) {
+          const from = link.from;
+          const to = link.to;
+          const key = from < to ? `${from}|${to}` : `${to}|${from}`;
+          if (!linkGroups.has(key)) {
+            linkGroups.set(key, []);
+          }
+          linkGroups.get(key).push(link);
+        }
+
+        for (const group of linkGroups.values()) {
+          const n = group.length;
+          if (n > 1) {
+            const fromNodeLoc = nodeMap.get(group[0].from);
+            const toNodeLoc = nodeMap.get(group[0].to);
+            if (!fromNodeLoc || !toNodeLoc) continue;
+
+            const dx = toNodeLoc.x - fromNodeLoc.x;
+            const dy = toNodeLoc.y - fromNodeLoc.y;
+
+            let portSequence;
+            // 根据连线方向，选择不同的端口组
+            if (Math.abs(dx) > Math.abs(dy)) {
+              // 偏水平
+              const topPorts = ["T1", "T2"];
+              const bottomPorts = ["B1", "B2"];
+              portSequence = buildSymmetricPortSequence(
+                n,
+                topPorts,
+                bottomPorts
+              );
+            } else {
+              // 偏垂直
+              const leftPorts = ["L1", "L2"];
+              const rightPorts = ["R1", "R2"];
+              portSequence = buildSymmetricPortSequence(
+                n,
+                leftPorts,
+                rightPorts
+              );
+            }
+
+            // 将计算好的对称端口序列应用到每条连线上
+            group.forEach((link, index) => {
+              const port = portSequence[index];
+              link.fromPort = port;
+              link.toPort = port;
+            });
+          }
+        }
+      }
+
+      const nodeDataArray = [
+        { key: "平寨站", l: "-168.1", loc: "0 50" },
+        { key: "黎阳站", l: "-198.2", loc: "150 0" },
+        { key: "新塘站", l: "-66.1", color: "red", loc: "300 50" },
+        { key: "岩头寨", g: "0", l: "321.3", loc: "0 250" },
+        { key: "草鞋坳", l: "-187.9", loc: "150 250" },
+        { key: "翁村站", l: "-1182.0", loc: "300 200" },
+        {
+          key: "安民电厂",
+          category: "Generator",
+          g: 297.6,
+          l: 19.8,
+          loc: "150 400",
+        },
+        { key: "优的站", l: "91.3", loc: "0 500" },
+        { key: "社洞基站", l: "78.4", loc: "150 600" },
+        {
+          key: "翁奇电厂",
+          category: "Generator",
+          g: 173.7,
+          l: 11.4,
+          loc: "650 500",
+        },
+        { key: "翁嘎站", l: "-153.8", loc: "150 800" },
+        { key: "杨家站", l: "-105.7", loc: "300 650" },
+        { key: "地罗站", l: "-153.9", loc: "450 700" },
+        { key: "典郎站", l: "97.5", loc: "450 850" },
+        { key: "西凉站", l: "127.2", loc: "450 500" },
+        { key: "得佑站", l: "157.4", loc: "300 450" },
+        { key: "排吊站", l: "7.0", loc: "450 350" },
+        { key: "功德站", l: "42.5", loc: "450 250" },
+        { key: "平朝站", l: "-4.7", loc: "600 300" },
+        { key: "上洞站", l: "9.0", loc: "600 150" },
+        { key: "挂榜站", l: "179.4", loc: "750 350" },
+        { key: "佳城站", l: "0.2", loc: "750 50" },
+        { key: "甲拉站", l: "121.4", loc: "900 450" },
+        { key: "新塘站-分接", l: "-422.5", color: "red", loc: "450 20" },
+        { key: "白溪站", l: "-95.2", loc: "900 150" },
+        {
+          key: "金泉电厂",
+          category: "Generator",
+          g: 220.3,
+          l: 18.2,
+          loc: "900 280",
+        },
+        { key: "金坪站", l: "-120.5", loc: "1050 260" },
+        { key: "东西洞站", l: "-85.6", loc: "1050 450" },
+        { key: "谷峰站", l: "-141.8", loc: "1200 360" },
+        { key: "双南站", l: "68.0", loc: "1200 520" },
+      ];
+
+      const linkDataArray = [
+        {
+          from: "平寨站",
+          to: "黎阳站",
+          label: "1.7070+j16.1090",
+          color: "#009900",
+        },
+        {
+          from: "黎阳站",
+          to: "新塘站",
+          label: "2.2390+j1.9940",
+          color: "#009900",
+        },
+        {
+          from: "黎阳站",
+          to: "岩头寨",
+          label: "2.9860-j660.1540",
+          color: "#009900",
+        },
+        {
+          from: "岩头寨",
+          to: "新塘站-分接",
+          label: "0.7000-j8.4820",
+          color: "#ff0000",
+        },
+        {
+          from: "岩头寨",
+          to: "新塘站-分接",
+          label: "0.7000-j8.4820",
+          color: "#ff0000",
+        },
+        {
+          from: "新塘站-分接",
+          to: "佳城站",
+          label: "0.7300-j8.4820",
+          color: "#ff0000",
+        },
+        {
+          from: "岩头寨",
+          to: "草鞋坳",
+          label: "0.7810-j8.9540",
+          color: "#009900",
+        },
+        {
+          from: "岩头寨",
+          to: "优的站",
+          label: "3.2180+j3.1750",
+          color: "#009900",
+        },
+        {
+          from: "优的站",
+          to: "社洞基站",
+          label: "0.8230+j8.0490",
+          color: "#009900",
+        },
+        // --- 模拟复杂场景：3根平行线 (已有) ---
+        { from: "社洞基站", to: "安民电厂", label: "线路A", color: "#009900" },
+        { from: "社洞基站", to: "安民电厂", label: "线路B", color: "#009900" },
+        { from: "社洞基站", to: "安民电厂", label: "线路C", color: "#009900" },
+        {
+          from: "社洞基站",
+          to: "杨家站",
+          label: "1.2480+j6.4480",
+          color: "#009900",
+        },
+        {
+          from: "杨家站",
+          to: "翁嘎站",
+          label: "2.6100+j5.1020",
+          color: "#009900",
+        },
+        {
+          from: "杨家站",
+          to: "地罗站",
+          label: "1.6900-j5.0020",
+          color: "#009900",
+        },
+        {
+          from: "地罗站",
+          to: "典郎站",
+          label: "0.4500+j1.2290",
+          color: "#009900",
+        },
+        {
+          from: "地罗站",
+          to: "西凉站",
+          label: "0.8820+j1.0200",
+          color: "#009900",
+        },
+        {
+          from: "西凉站",
+          to: "安民电厂",
+          label: "0.6690+j4.3650",
+          color: "#009900",
+        },
+        {
+          from: "安民电厂",
+          to: "得佑站",
+          label: "0.3320-j2.9580",
+          color: "#009900",
+        },
+        {
+          from: "安民电厂",
+          to: "草鞋坳",
+          label: "0.8890+j4.8610",
+          color: "#009900",
+        },
+        {
+          from: "草鞋坳",
+          to: "翁村站",
+          label: "4.4790-j102.6220",
+          color: "#009900",
+        },
+        {
+          from: "得佑站",
+          to: "排吊站",
+          label: "0.2920+j6.2620",
+          color: "#009900",
+        },
+        {
+          from: "排吊站",
+          to: "功德站",
+          label: "0.9190+j6.6010",
+          color: "#009900",
+        },
+        {
+          from: "功德站",
+          to: "新塘站-分接",
+          label: "0.7670+j5.6970",
+          color: "#009900",
+        },
+        {
+          from: "功德站",
+          to: "平朝站",
+          label: "0.8410+j1.066",
+          color: "#009900",
+        },
+        {
+          from: "平朝站",
+          to: "上洞站",
+          label: "1.0920+j1.1860",
+          color: "#009900",
+        },
+        {
+          from: "上洞站",
+          to: "佳城站",
+          label: "2.3100+j7.2880",
+          color: "#009900",
+        },
+        {
+          from: "佳城站",
+          to: "甲拉站",
+          label: "1.1190+j4.1980",
+          color: "#009900",
+        },
+        {
+          from: "甲拉站",
+          to: "翁奇电厂",
+          label: "1.0930+j4.1680",
+          color: "#009900",
+        },
+        {
+          from: "挂榜站",
+          to: "翁奇电厂",
+          label: "0.7970-j0.8870",
+          color: "#009900",
+        },
+        {
+          from: "挂榜站",
+          to: "平朝站",
+          label: "1.0920+j1.1860",
+          color: "#009900",
+        },
+        {
+          from: "挂榜站",
+          to: "平朝站",
+          label: "1.0920+j1.1860",
+          color: "#009900",
+        },
+        // --- 模拟复杂场景：4根平行线 ---
+        {
+          from: "西凉站",
+          to: "翁奇电厂",
+          label: "线路1: 3.9+j12.4",
+          color: "#009900",
+        },
+        {
+          from: "西凉站",
+          to: "翁奇电厂",
+          label: "线路2: 4.1+j12.5",
+          color: "#009900",
+        },
+        {
+          from: "西凉站",
+          to: "翁奇电厂",
+          label: "线路3: 备用A",
+          color: "orange",
+        },
+        {
+          from: "西凉站",
+          to: "翁奇电厂",
+          label: "线路4: 备用B",
+          color: "orange",
+        },
+        {
+          from: "佳城站",
+          to: "白溪站",
+          label: "4号线 1.3180+j5.4420",
+          color: "#0050c8",
+        },
+        {
+          from: "白溪站",
+          to: "金坪站",
+          label: "4号线 1.9280+j4.8710",
+          color: "#0050c8",
+        },
+        {
+          from: "金坪站",
+          to: "谷峰站",
+          label: "4号线 1.1100+j3.7860",
+          color: "#0050c8",
+        },
+        {
+          from: "谷峰站",
+          to: "甲拉站",
+          label: "4号线 0.9820+j3.1220",
+          color: "#0050c8",
+        },
+        {
+          from: "白溪站",
+          to: "上洞站",
+          label: "5号线 1.5680+j4.0250",
+          color: "#7811d7",
+        },
+        {
+          from: "金坪站",
+          to: "东西洞站",
+          label: "5号线 0.8450+j2.7750",
+          color: "#7811d7",
+        },
+        {
+          from: "东西洞站",
+          to: "西凉站",
+          label: "5号线 1.2100+j3.4950",
+          color: "#7811d7",
+        },
+        {
+          from: "东西洞站",
+          to: "双南站",
+          label: "联络 0.9560+j2.8800",
+          color: "#00aaee",
+        },
+        {
+          from: "双南站",
+          to: "翁奇电厂",
+          label: "联络 0.7150+j2.2650",
+          color: "#00aaee",
+        },
+        {
+          from: "金泉电厂",
+          to: "金坪站",
+          label: "金泉 0.5320+j2.6100",
+          color: "#ff6600",
+        },
+        {
+          from: "金泉电厂",
+          to: "佳城站",
+          label: "金泉 0.4100+j2.1020",
+          color: "#ff6600",
+        },
+        {
+          from: "金泉电厂",
+          to: "白溪站",
+          label: "金泉 0.4100+j2.1020",
+          color: "#ff6600",
+        },
+        // --- 模拟最复杂场景：5根平行线 (第5根会复用第1根的端口) ---
+        {
+          from: "甲拉站",
+          to: "东西洞站",
+          label: "超高压线A",
+          color: "#cc0000",
+        },
+        {
+          from: "甲拉站",
+          to: "东西洞站",
+          label: "超高压线B",
+          color: "#cc0000",
+        },
+        { from: "甲拉站", to: "东西洞站", label: "主干线", color: "#333333" },
+        { from: "甲拉站", to: "东西洞站", label: "备用线1", color: "#aaaaaa" },
+        { from: "甲拉站", to: "东西洞站", label: "备用线2", color: "#aaaaaa" },
+      ];
+
+      // 在加载模型前调用新函数
+      assignPorts(nodeDataArray, linkDataArray);
+
+      myDiagram.model = new go.GraphLinksModel(nodeDataArray, linkDataArray);
+    </script>
+  </body>
+</html>
