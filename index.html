@@ -70,11 +70,15 @@
       }
 
       // ### 任意点弯折工具：带拖动提示 + 防抖 ###
-      // 说明：
-      //   1. 鼠标左键按在线路上时不会立即插入折点，而是记录起始位置。
-      //   2. 只有在拖动距离超过阈值后才真正插入折点，并出现一个浅蓝色圆点提示用户当前可拖拽折线。
-      //   3. 松开鼠标后提示消失、折点保留，右键不受影响，因为 canStart 只处理左键事件。
-      //   4. stopTool 会调用父类逻辑，确保 Diagram 状态（鼠标捕获、默认工具等）恢复正常。
+      // 集成功能回顾：
+      //   • 自定义折线：在线段任意位置按住并拖动即可插入折点，光标变为“抓手”并出现半透明提示圆点。
+      //   • 防抖阈值：拖动距离 < 8px 时不插入折点，避免误触。
+      //   • 折点间距控制：
+      //       - 新折点与已有折点 < 20px 或与端点 < 30px 时自动跳过，保持折点稀疏且远离节点。
+      //       - 当拖动位置贴近现有折点时复用该折点，可继续调整历史折角，而不会生成重复折点。
+      //   • 折点提示：拖动过程中浅蓝色圆点随鼠标移动，确认正在编辑的折点位置。
+      //   • 自动回直：释放鼠标后检测折点与前后端连线的垂距（≤8px）或夹角（≥165°）；若几乎是直线则自动删除折点。
+      //   • 恢复默认交互：未插入折点时自动选中该连线，继续支持常规单击选择和右键菜单。
       class AnyPointReshapeTool extends go.Tool {
         constructor() {
           super();
@@ -89,6 +93,7 @@
           this._dragThresholdSq = 64; // 触发折点插入的最小距离平方（8px 的平方）
           this._minBendSpacingSq = 400; // 折点之间的最小距离平方（20px）：拖动距离不足 8px 或离现有折点 <20px 时不新增折点，避免误触和折点堆叠
           this._minEndpointSpacingSq = 900; // 折点距端点的最小距离平方（30px）：靠近端点拖动时不新建折点，避免节点附近产生冗余折点
+          this._straighteningTolerance = 8; // 折点对齐阈值（像素）：折点距前后端连线的垂距 <= 8px 时检测为“近乎直线”，自动去除折点
           this._lastInserted = null; // 记录最近一次插入的折点，便于后续进一步扩展（保留字段）
         }
         canStart() {
@@ -238,6 +243,11 @@
           if (this.isActive && this._hasInserted) {
             this.transactionResult = this.name;
           }
+          const link = this._adornedLink;
+          const diagram = this.diagram;
+          if (link && !this._hasInserted && diagram) {
+            diagram.select(link); // 未插入折点时视为单击，保持原本的选中行为
+          }
           this.stopTool(); // 交给 stopTool 做善后
         }
         doCancel() {
@@ -258,6 +268,8 @@
           this._indicator = null;
           if (this._hasInserted) {
             this.stopTransaction();
+            // 判断折点是否足够“直线”，是则移除折点保持干净线路
+            this._autoSimplify(link);
           }
           if (link) link.isHighlighted = false;
           this._adornedLink = null;
@@ -267,6 +279,57 @@
           this._hasInserted = false;
           this._skipInsert = false;
           go.Tool.prototype.stopTool.call(this); // 恢复 Diagram 状态，允许继续拖节点等操作
+        }
+        _autoSimplify(link) {
+          if (!link || typeof this._pointIndex !== "number") return;
+          const idx = this._pointIndex;
+          if (idx <= 0 || idx >= link.pointsCount - 1) return;
+          const pts = link.points.copy();
+          if (idx >= pts.length) return;
+          const prev = pts.get(idx - 1);
+          const curr = pts.get(idx);
+          const next = pts.get(idx + 1);
+          if (!prev || !curr || !next) return;
+
+          const a2 = prev.distanceSquaredPoint(curr);
+          const b2 = curr.distanceSquaredPoint(next);
+          const c2 = prev.distanceSquaredPoint(next);
+          let removed = false;
+          if (a2 === 0 || b2 === 0) {
+            pts.removeAt(idx);
+            removed = true;
+          } else {
+            const a = Math.sqrt(a2);
+            const b = Math.sqrt(b2);
+            const segLength = Math.sqrt(c2);
+            if (segLength > 0) {
+              // 计算 curr 到前后端连线的垂直距离
+              const area =
+                Math.abs(
+                  (curr.x - prev.x) * (next.y - prev.y) -
+                    (curr.y - prev.y) * (next.x - prev.x)
+                ) / segLength;
+              if (area <= this._straighteningTolerance) {
+                pts.removeAt(idx);
+                removed = true;
+              } else {
+                // 兜底：使用角度判断，避免浅角度残留
+                const cosAngle = (a2 + b2 - c2) / (2 * a * b);
+                const clamped = Math.min(1, Math.max(-1, cosAngle));
+                const degrees = Math.acos(clamped) * (180 / Math.PI);
+                if (degrees > 165) {
+                  pts.removeAt(idx);
+                  removed = true;
+                }
+              }
+            }
+          }
+          if (removed) {
+            const diagram = link.diagram;
+            if (diagram) diagram.startTransaction("auto simplify");
+            link.points = pts;
+            if (diagram) diagram.commitTransaction("auto simplify");
+          }
         }
         testInsertPoint(link, point) {
           const seg = link.findClosestSegment(point);
@@ -475,6 +538,19 @@
         { key: "佳城站", l: "0.2", loc: "750 50" },
         { key: "甲拉站", l: "121.4", loc: "900 450" },
         { key: "新塘站-分接", l: "-422.5", color: "red", loc: "450 20" },
+        // --- 4/5号线扩展节点 ---
+        { key: "白溪站", l: "-95.2", loc: "900 150" },
+        {
+          key: "金泉电厂",
+          category: "Generator",
+          g: 220.3,
+          l: 18.2,
+          loc: "900 280",
+        },
+        { key: "金坪站", l: "-120.5", loc: "1050 260" },
+        { key: "东西洞站", l: "-85.6", loc: "1050 450" },
+        { key: "谷峰站", l: "-141.8", loc: "1200 360" },
+        { key: "双南站", l: "68.0", loc: "1200 520" },
       ];
 
       const linkDataArray = [
@@ -681,6 +757,79 @@
           to: "翁奇电厂",
           label: "3.9860+j12.4840",
           color: "#009900",
+        },
+        // --- 4/5号线扩展线路 ---
+        {
+          from: "佳城站",
+          to: "白溪站",
+          label: "4号线 1.3180+j5.4420",
+          color: "#0050c8",
+        },
+        {
+          from: "白溪站",
+          to: "金坪站",
+          label: "4号线 1.9280+j4.8710",
+          color: "#0050c8",
+        },
+        {
+          from: "金坪站",
+          to: "谷峰站",
+          label: "4号线 1.1100+j3.7860",
+          color: "#0050c8",
+        },
+        {
+          from: "谷峰站",
+          to: "甲拉站",
+          label: "4号线 0.9820+j3.1220",
+          color: "#0050c8",
+        },
+        {
+          from: "白溪站",
+          to: "上洞站",
+          label: "5号线 1.5680+j4.0250",
+          color: "#7811d7",
+        },
+        {
+          from: "金坪站",
+          to: "东西洞站",
+          label: "5号线 0.8450+j2.7750",
+          color: "#7811d7",
+        },
+        {
+          from: "东西洞站",
+          to: "西凉站",
+          label: "5号线 1.2100+j3.4950",
+          color: "#7811d7",
+        },
+        {
+          from: "东西洞站",
+          to: "双南站",
+          label: "联络 0.9560+j2.8800",
+          color: "#00aaee",
+        },
+        {
+          from: "双南站",
+          to: "翁奇电厂",
+          label: "联络 0.7150+j2.2650",
+          color: "#00aaee",
+        },
+        {
+          from: "金泉电厂",
+          to: "金坪站",
+          label: "金泉 0.5320+j2.6100",
+          color: "#ff6600",
+        },
+        {
+          from: "金泉电厂",
+          to: "佳城站",
+          label: "金泉 0.4100+j2.1020",
+          color: "#ff6600",
+        },
+        {
+          from: "金泉电厂",
+          to: "白溪站",
+          label: "金泉 0.4100+j2.1020",
+          color: "#ff6600",
         },
       ];
 
